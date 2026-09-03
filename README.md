@@ -42,3 +42,35 @@ Before the first release, configure the organization's npm registry in a
 local `.npmrc` (see `.npmrc.example`) and use a read-only token in application
 CI.
 
+## Application integration
+
+An application repository is intentionally not a member of this workspace.
+After `@edp/website-ui` and `@edp/website-runtime` have been published, add
+the released versions to the application itself:
+
+```bash
+pnpm add @edp/website-runtime@0.1.0 @edp/website-ui@0.1.0
+```
+
+The resulting manifest should contain normal semver versions, not `link:` or
+relative `file:` paths:
+
+```json
+{
+  "dependencies": {
+    "@edp/website-runtime": "0.1.0",
+    "@edp/website-ui": "0.1.0"
+  }
+}
+```
+
+Each application keeps its own lockfile and `.npmrc` (or CI-provided npm
+configuration). A clean clone must build without the sibling `packages/`
+directory. During local package development, use a packed tarball or a local
+link only in an uncommitted override; do not commit that override to the
+application repository.
+
+The package Git repository alone is not a substitute for a registry when one
+published package depends on another package in this workspace. Git-based
+subdirectory dependencies can be used temporarily, but they pin source
+commits and make transitive dependencies and CI credentials harder to manage.
