@@ -4,6 +4,9 @@
   "private": false,
   "description": "EDP Nuxt runtime and standard website page templates",
   "license": "UNLICENSED",
+  "publishConfig": {
+    "access": "restricted"
+  },
   "files": [
     "src"
   ],

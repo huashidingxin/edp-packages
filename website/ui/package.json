@@ -4,6 +4,9 @@
   "private": false,
   "description": "EDP website Vue component and interaction library",
   "license": "UNLICENSED",
+  "publishConfig": {
+    "access": "restricted"
+  },
   "files": [
     "src",
     "BLOCKS_SPEC.md"
