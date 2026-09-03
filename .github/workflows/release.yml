@@ -51,4 +51,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Publish packages
-        run: pnpm run release -- --tag "${{ inputs.tag }}"
+        run: |
+          pnpm run check
+          pnpm run release:check
+          pnpm exec changeset publish --tag "${{ inputs.tag }}"
