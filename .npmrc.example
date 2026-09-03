@@ -6,6 +6,10 @@
 # @edp:registry=https://registry.npmjs.org/
 # //registry.npmjs.org/:_authToken=${NPM_TOKEN}
 #
+# Company registry (replace the host/path):
+# @edp:registry=https://npm.example.com/
+# //npm.example.com/:_authToken=${NPM_TOKEN}
+#
 # GitHub Packages (the scope must match the GitHub owner/org):
 # @your-github-org:registry=https://npm.pkg.github.com
 # //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
