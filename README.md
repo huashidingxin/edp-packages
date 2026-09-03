@@ -25,6 +25,20 @@ pnpm run version
 pnpm run release
 ```
 
+## Create the remote repository
+
+Create an empty repository in the organization's Git service, then publish
+this directory (the remote URL is intentionally not hard-coded here):
+
+```bash
+git remote add origin <public-or-private-repository-url>
+git push -u origin main
+```
+
+Git visibility and npm registry visibility are independent choices. A public
+source repository may still publish restricted packages; set the registry and
+the Changesets `access` value to match the organization's policy.
+
 The workspace uses `workspace:^` only for dependencies between packages in
 this repository. Published manifests are rewritten to normal semver ranges.
 An application repository uses released versions, for example:
