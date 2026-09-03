@@ -1,0 +1,11 @@
+# Copy this file to .npmrc for local publishing/installation and set a token
+# through the environment. Never commit the real .npmrc or a token.
+#
+# npmjs (private scoped packages):
+# @edp:registry=https://registry.npmjs.org/
+# //registry.npmjs.org/:_authToken=${NPM_TOKEN}
+#
+# GitHub Packages (the scope must match the GitHub owner/org):
+# @your-github-org:registry=https://npm.pkg.github.com
+# //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+

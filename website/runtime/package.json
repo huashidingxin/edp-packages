@@ -1,0 +1,47 @@
+{
+  "name": "@edp/website-runtime",
+  "version": "0.1.0",
+  "private": false,
+  "description": "EDP Nuxt runtime and standard website page templates",
+  "license": "UNLICENSED",
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/module.ts",
+      "import": "./src/module.ts"
+    },
+    "./module": {
+      "types": "./src/module.ts",
+      "import": "./src/module.ts"
+    },
+    "./composables": {
+      "types": "./src/composables.ts",
+      "import": "./src/composables.ts"
+    }
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
+    "test": "node --experimental-strip-types --test \"tests/*.test.ts\""
+  },
+  "dependencies": {
+    "@edp/website-ui": "workspace:^",
+    "@nuxt/kit": "4.4.8",
+    "defu": "^6.1.4"
+  },
+  "devDependencies": {
+    "@nuxt/schema": "4.4.8",
+    "@types/node": "^22.10.0",
+    "nuxt": "4.4.8",
+    "typescript": "^5.9.3",
+    "vue": "^3.5.39",
+    "vue-tsc": "^3.3.11"
+  },
+  "peerDependencies": {
+    "nuxt": "^4.0.0",
+    "vue": ">=3.5.0"
+  }
+}

@@ -1,0 +1,296 @@
+@import "tailwindcss";
+
+/*
+ * /website-ui —— 样式定制契约
+ *
+ * 分层规则（低 → 高）：
+ *   1. @layer base        全局兜底
+ *   2. @layer components  o-* 工具类默认值（本文件）
+ *   3. @layer utilities   Tailwind 工具类（blocks 模板内的默认外观）
+ *   4. 非 layered 站点覆盖 站点 main.css 直接写 `.web-card__title { ... }`
+ *                         （unlayered 天然压过一切 layered 规则，零 !important）
+ *
+ * 部件级变量：组件模板内一律 `var(--o-*, 兜底值)`，
+ * 站点可在任意祖先节点声明变量实现"一处声明、整站生效"。
+ */
+
+/* Scan all component layers so Tailwind v4 JIT generates their utilities.
+ * ./lib 必须扫：spanClass()（form.ts）等纯逻辑里含 col-span-* 字面量类。 */
+@source "./primitives";
+@source "./blocks";
+@source "./lib";
+
+@theme inline {
+  /* ---------- 色彩（shadcn 语义色；站点可被 bootstrap tokens / main.css 覆盖） ---------- */
+  --color-background: var(--color-background, #ffffff);
+  --color-foreground: var(--color-foreground, #0b1220);
+
+  --color-card: var(--color-card, #ffffff);
+  --color-card-foreground: var(--color-card-foreground, #0b1220);
+  --color-popover: var(--color-popover, #ffffff);
+  --color-popover-foreground: var(--color-popover-foreground, #0b1220);
+
+  --color-primary: var(--color-primary, #2563eb);
+  --color-primary-foreground: var(--color-primary-foreground, #ffffff);
+  --color-secondary: var(--color-secondary, #f4f6fb);
+  --color-secondary-foreground: var(--color-secondary-foreground, #0b1220);
+  --color-muted: var(--color-muted, #f4f6fb);
+  --color-muted-foreground: var(--color-muted-foreground, #5a6577);
+  --color-accent: var(--color-accent, #eef4ff);
+  --color-accent-foreground: var(--color-accent-foreground, #1e40af);
+  --color-destructive: var(--color-destructive, #e11d48);
+  --color-destructive-foreground: var(--color-destructive-foreground, #ffffff);
+
+  --color-border: var(--color-border, #e6e9f0);
+  --color-input: var(--color-input, #dce1ea);
+  --color-ring: var(--color-ring, #2563eb);
+
+  /* ---------- 圆角 ---------- */
+  --radius-sm: var(--radius-sm, 6px);
+  --radius-md: var(--radius-md, 12px);
+  --radius-lg: var(--radius-lg, 20px);
+  --radius-card: var(--radius-card, 16px);
+
+  /* ---------- 字体 ---------- */
+  --font-sans: var(--font-sans, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif);
+  --font-display: var(--font-display, var(--font-sans));
+
+  /* ---------- 字号阶（display 系列供区块大标题，站点可整档换掉） ---------- */
+  --text-display-sm: var(--text-display-sm, 1.5rem);
+  --text-display-sm--line-height: var(--text-display-sm--line-height, 1.25);
+  --text-display-md: var(--text-display-md, clamp(1.75rem, 1.2rem + 2vw, 2.5rem));
+  --text-display-md--line-height: var(--text-display-md--line-height, 1.2);
+  --text-display-lg: var(--text-display-lg, clamp(2rem, 1.2rem + 3vw, 3.25rem));
+  --text-display-lg--line-height: var(--text-display-lg--line-height, 1.15);
+
+  /* ---------- 阴影 ---------- */
+  --shadow-card: var(--shadow-card, 0 1px 2px rgb(11 18 32 / 0.04), 0 8px 24px rgb(11 18 32 / 0.06));
+  --shadow-lift: var(--shadow-lift, 0 12px 32px rgb(11 18 32 / 0.12), 0 2px 6px rgb(11 18 32 / 0.05));
+  --shadow-pop: var(--shadow-pop, 0 24px 56px rgb(11 18 32 / 0.18), 0 2px 8px rgb(11 18 32 / 0.06));
+
+  /* ---------- 动效（Tailwind transition-* 工具类的全局手感;站点可被 --web-motion-ease 统一调整） ---------- */
+  --default-transition-timing-function: var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1));
+
+  /* ---------- 容器与比例（blocks 的布局常量全部走这里） ---------- */
+  --container-site: var(--container-site, 80rem);
+  --aspect-card: var(--ratio-card, 4 / 3);
+  --aspect-media: var(--ratio-media, 16 / 9);
+  --aspect-portrait: var(--ratio-portrait, 3 / 4);
+  --aspect-hero: var(--ratio-hero, 21 / 9);
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
+
+  html,
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* 宽屏再加一档(≥ 2xl / 1536px):版心 1280→1600,hero 呼吸与标题字号同步放大,
+     避免 1600 版心下内容显得空旷。
+     :root 级变量站点可用无层级声明压过;WebSection 的内联留白通过 --web-section-py-wide
+     按 data-size 叠加取大(见下),普通屏回退 0rem,行为不变。 */
+  @media (min-width: 96rem) {
+    :root {
+      --container-site: 100rem;
+
+      /* hero:高度与上下呼吸同步放大一档 */
+      --web-hero-min-h: 520px;
+      --web-hero-pt: 10rem;
+      --web-hero-pb: 8rem;
+      --web-hero-split-py: 6.5rem;
+      --web-hero-title-size: clamp(2.25rem, 1.2rem + 2.5vw, 3.75rem);
+
+      /* 栏目标题字号:display 档上限上调(md 40→44px,lg 52→60px) */
+      --text-display-md: 2.75rem;
+      --text-display-lg: 3.75rem;
+    }
+
+    /* 区块纵向留白的宽屏加档(与各 size 的基础值取大) */
+    .web-section[data-size='sm'] { --web-section-py-wide: 3rem; }
+    .web-section[data-size='md'] { --web-section-py-wide: 5rem; }
+    .web-section[data-size='lg'] { --web-section-py-wide: 6.5rem; }
+  }
+}
+
+@layer components {
+  /* ---------- 区块眉题（站点全站默认安静；钩子全在，站点可在祖先节点声明恢复强调形态） ---------- */
+  .web-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--web-eyebrow-gap, 0);
+    font-size: var(--web-eyebrow-size, 0.8125rem);
+    font-weight: var(--web-eyebrow-weight, 500);
+    letter-spacing: var(--web-eyebrow-tracking, 0.02em);
+    text-transform: var(--web-eyebrow-case, none);
+    color: var(--web-eyebrow-color, var(--color-muted-foreground));
+  }
+  /* 装饰短线默认不渲染；站点设 --web-eyebrow-rule:"—" 即开启，仍可继续调 --web-eyebrow-rule-w/-h */
+  .web-eyebrow::before {
+    content: var(--web-eyebrow-rule, "");
+    width: var(--web-eyebrow-rule-w, 28px);
+    height: var(--web-eyebrow-rule-h, 2px);
+    background: currentColor;
+    border-radius: 999px;
+  }
+
+  /* ---------- 富文本渲染（后台 richtext 输出） ---------- */
+  .web-prose {
+    color: var(--web-prose-color, var(--color-foreground));
+    font-size: var(--web-prose-size, 0.95rem);
+    line-height: var(--web-prose-leading, 1.85);
+    overflow-x: auto;
+  }
+  .web-prose > * + * {
+    margin-top: 1em;
+  }
+  .web-prose h1,
+  .web-prose h2,
+  .web-prose h3,
+  .web-prose h4 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--web-prose-heading-color, var(--color-foreground));
+    margin-top: 1.6em;
+  }
+  .web-prose h2 { font-size: 1.35rem; }
+  .web-prose h3 { font-size: 1.1rem; }
+  .web-prose ul { list-style: disc; padding-left: 1.4em; }
+  .web-prose ol { list-style: decimal; padding-left: 1.4em; }
+  .web-prose a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .web-prose blockquote {
+    border-left: 3px solid var(--color-primary);
+    padding-left: 1em;
+    color: var(--color-muted-foreground);
+  }
+  .web-prose table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  .web-prose th,
+  .web-prose td {
+    border: 1px solid var(--color-border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .web-prose th {
+    background: var(--color-muted);
+    font-weight: 600;
+  }
+  .web-prose img {
+    border-radius: var(--radius-md);
+    margin-inline: auto;
+  }
+
+  /* ---------- 行数截断 / 数字 ---------- */
+  .web-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .web-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .web-num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- 内容卡片（WebCard 部件默认；变量契约见组件注释） ---------- */
+  /* 竖排卡片媒体按 kind/ratio 统一比例：--web-card-ratio 由组件按 ratio prop 或
+     kind 默认（product 4/3 / article 16/10 / case 16/9 / gallery 4/3）内联注入。
+     缺此规则时封面按原图比例渲染，竖版扫描件会把卡片撑成竖长条并拉歪整排。 */
+  .web-card[data-orientation='vertical'] .web-card__media {
+    aspect-ratio: var(--web-card-ratio, var(--aspect-card, 4 / 3));
+  }
+
+  /* ---------- 动效个性（站点可通过变量调整或整体禁用） ---------- */
+  .web-motion {
+    transition-duration: var(--web-motion-duration, 0.35s);
+    transition-timing-function: var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1));
+    /* Tailwind v4 的 translate/rotate/scale 工具类走 CSS 独立属性(非 transform);
+       漏列任何一个,对应悬停位移都会瞬间跳变(悬浮卡片“生硬”的根因)。 */
+    transition-property: translate, rotate, scale, transform, box-shadow, color, background-color, border-color, opacity;
+  }
+  @keyframes web-rise-in-kf {
+    from {
+      opacity: 0;
+      transform: translateY(var(--web-motion-rise, 16px));
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .web-rise-in {
+    animation: web-rise-in-kf var(--web-motion-duration, 0.6s) var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+  }
+
+  /* 滚动入场（useWebReveal 消费）：JS 先挂 .web-rise-wait 隐藏视口外元素，
+     进入视口后换 .web-rise-in 播放入场；隐藏态只由 JS 挂类触发，
+     无 JS / 无 IntersectionObserver 时内容天然可见（渐进增强）。
+     错峰延迟走 --web-reveal-delay（useWebReveal 由 data-web-reveal-delay 注入）。 */
+  .web-rise-wait {
+    opacity: 0;
+    transform: translateY(var(--web-motion-rise, 16px));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .web-rise-wait,
+    .web-rise-in,
+    .web-motion {
+      animation: none;
+      transition: none;
+    }
+    .web-rise-wait {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* ---------- 中性深色带（模板页页眉；站点可覆盖 --color-secondary） ---------- */
+  .web-band-dark {
+    background-color: var(--color-secondary);
+    color: var(--color-secondary-foreground);
+  }
+
+  /* ---------- 无障碍 ---------- */
+  .web-skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 100;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    background: var(--color-background);
+    color: var(--color-foreground);
+  }
+  .web-skip-link:focus {
+    left: 16px;
+    top: 16px;
+  }
+}

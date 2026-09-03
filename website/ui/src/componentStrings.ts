@@ -1,0 +1,156 @@
+/**
+ * 组件级字符串 —— 系统组件级别翻译的聚合点。
+ *
+ * 约定（AGENTS.md / saas-website-packages §5）：
+ * - 组件内可见文本（含 aria-label）一律走 props，由调用方传入翻译后的值；
+ * - 默认值集中在本文件，值为中文原文（与 site_ui_strings 的 source 约定一致，
+ *   缺翻译时回退原文不空屏）；
+ * - 后端 seed 无条件全量收录本表词条。
+ */
+export const componentStrings = {
+  WebHeader: {
+    home: '首页',
+    mainNav: '主导航',
+    openMenu: '打开菜单',
+    closeMenu: '关闭菜单',
+    switchLocale: '切换语言',
+  },
+  WebFooter: {
+    contact: '联系方式',
+    allRightsReserved: '保留所有权利',
+    quickLinks: '快捷导航',
+  },
+  WebHero: {
+    primary: '了解更多',
+  },
+  WebCard: {
+    readMore: '查看详情',
+  },
+  WebCarousel: {
+    label: '图片轮播',
+    prev: '上一张',
+    next: '下一张',
+  },
+  WebMarquee: {
+    label: '滚动展示',
+  },
+  WebShare: {
+    label: '分享到',
+    copied: '链接已复制',
+    copyLink: '复制链接',
+    wechatTitle: '微信扫码分享',
+    wechatHint: '微信扫一扫，在手机上打开',
+    weibo: '新浪微博',
+    qq: 'QQ好友',
+    wechat: '微信',
+    qzone: 'QQ空间',
+    douban: '豆瓣',
+    linkedin: '领英',
+  },
+  WebSection: {
+    more: '查看更多',
+  },
+  WebCollectionPage: {
+    sidebarTitle: '分类',
+    empty: '暂无内容',
+    totalLabel: '共 {count} 项',
+    filterLabel: '全部分类',
+  },
+  WebAbout: {
+    contactCta: '联系我们',
+  },
+  WebServiceSidebar: {
+    tools: '快捷工具',
+    toTop: '回到顶部',
+  },
+  WebRecordPage: {
+    previous: '上一篇',
+    next: '下一篇',
+    backToList: '返回列表',
+    overview: '概览',
+  },
+  WebPagination: {
+    previous: '上一页',
+    next: '下一页',
+    page: '第 {page} 页',
+    status: '共 {total} 页',
+  },
+  WebBreadcrumbs: {
+    label: '面包屑',
+  },
+  WebContactForm: {
+    submit: '提交',
+    submitting: '提交中…',
+    submitFailed: '提交失败，请稍后重试。',
+    successTitle: '提交成功',
+    successDefault: '提交成功，我们会尽快与您联系。',
+    required: '此项为必填项',
+    consentRequired: '请先阅读并同意',
+    emailInvalid: '请输入有效的邮箱地址',
+    telInvalid: '请输入有效的联系电话',
+    urlInvalid: '请输入有效的网址',
+    numberInvalid: '请输入有效数字',
+    min: '不能小于 {min}',
+    max: '不能大于 {max}',
+    minLength: '不能少于 {n} 个字符',
+    maxLength: '不能超过 {n} 个字符',
+    pattern: '格式不正确',
+    minDate: '不能早于 {date}',
+    maxDate: '不能晚于 {date}',
+    minSelected: '请至少选择 {n} 项',
+    maxSelected: '最多选择 {n} 项',
+    invalidOption: '选项无效',
+    fileMin: '请至少上传 {n} 个文件',
+    fileMax: '最多上传 {n} 个文件',
+    fileSize: '文件大小不能超过 {max}MB',
+    fileHint: '支持 {max}MB 以内的文件',
+    chooseFile: '选择文件',
+    removeFile: '移除',
+    addItem: '添加一项',
+    removeItem: '删除',
+    itemLabel: '第 {index} 项',
+    addRow: '新增行',
+    removeRow: '删除本行',
+    emptyList: '暂无数据，点击“{action}”',
+    specLabel: '校验规范',
+    specDefault: '基本校验（恒生效）',
+    warningHint: '提示：{message}',
+    addressCountry: '国家/地区',
+    addressProvince: '省份',
+    addressCity: '城市',
+    addressDistrict: '区县',
+    addressTown: '街道',
+  },
+  WebUserArea: {
+    login: '登录',
+    logout: '退出登录',
+    account: '账户中心',
+    loginRequired: '请输入账号',
+    passwordRequired: '请输入密码',
+    loginFailed: '登录失败，请检查账号或密码。',
+    dialogTitle: '会员登录',
+    accountPlaceholder: '手机号 / 邮箱',
+    passwordPlaceholder: '密码',
+    submitLogin: '登 录',
+    submitting: '登录中…',
+    welcomeBack: '欢迎回来',
+  },
+  WebChatWidget: {
+    open: '打开客服',
+    close: '关闭客服',
+    title: '智能客服',
+    placeholder: '输入您的问题…',
+    send: '发送',
+    welcome: '您好，有什么可以帮您？',
+    error: 'AI 服务暂时不可用，请稍后重试。',
+    panelLabel: '在线客服',
+    online: '在线',
+    stop: '停止生成',
+    enlarge: '放大窗口',
+    shrink: '缩小窗口',
+    resize: '拖动调整大小',
+    user: '我',
+  },
+} as const;
+
+export type ComponentStrings = typeof componentStrings;
