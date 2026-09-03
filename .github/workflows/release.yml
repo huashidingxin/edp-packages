@@ -1,0 +1,54 @@
+name: packages-release
+
+# Publishing is intentionally manual. Set the repository variable
+# EDP_NPM_REGISTRY when the organization uses a private registry; otherwise
+# npmjs is used. Store the write token in the NPM_TOKEN secret.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: npm dist-tag
+        required: false
+        default: latest
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      EDP_NPM_REGISTRY: ${{ vars.EDP_NPM_REGISTRY || 'https://registry.npmjs.org' }}
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Configure npm registry
+        shell: bash
+        run: |
+          registry_host="${EDP_NPM_REGISTRY#https://}"
+          registry_host="${registry_host#http://}"
+          registry_host="${registry_host%/}"
+          npm config set "@edp:registry" "$EDP_NPM_REGISTRY"
+          npm config set "//$registry_host/:_authToken" "$NODE_AUTH_TOKEN"
+          npm config set always-auth true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Publish packages
+        run: pnpm run release -- --tag "${{ inputs.tag }}"
