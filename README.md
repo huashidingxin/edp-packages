@@ -29,11 +29,14 @@ pnpm run release
 
 ## Create the remote repository
 
-Create an empty repository in the organization's Git service, then publish
-this directory (the remote URL is intentionally not hard-coded here):
+This workspace is published from:
+
+<https://github.com/huashidingxin/edp-packages>
+
+For a fresh local copy of this directory, configure and publish the remote with:
 
 ```bash
-git remote add origin <public-or-private-repository-url>
+git remote add origin git@github.com:huashidingxin/edp-packages.git
 git push -u origin main
 ```
 

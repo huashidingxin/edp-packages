@@ -4,6 +4,11 @@
   "private": false,
   "description": "EDP website Vue component and interaction library",
   "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huashidingxin/edp-packages.git",
+    "directory": "website/ui"
+  },
   "publishConfig": {
     "access": "restricted"
   },

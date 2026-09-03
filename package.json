@@ -4,6 +4,10 @@
   "private": true,
   "description": "EDP shared packages workspace",
   "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huashidingxin/edp-packages.git"
+  },
   "type": "module",
   "packageManager": "pnpm@10.32.1",
   "engines": {

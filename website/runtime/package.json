@@ -4,6 +4,11 @@
   "private": false,
   "description": "EDP Nuxt runtime and standard website page templates",
   "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huashidingxin/edp-packages.git",
+    "directory": "website/runtime"
+  },
   "publishConfig": {
     "access": "restricted"
   },
