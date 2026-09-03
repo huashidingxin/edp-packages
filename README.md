@@ -44,6 +44,13 @@ Git visibility and npm registry visibility are independent choices. A public
 source repository may still publish restricted packages; set the registry and
 the Changesets `access` value to match the organization's policy.
 
+The current package names intentionally use the `@edp` scope. GitHub Packages
+requires a package scope owned by the corresponding GitHub user/organization;
+the `huashidingxin/edp-packages` repository alone does not make `@edp` a valid
+GitHub Packages scope. Keep the names and use the organization's npm or Verdaccio
+registry, or create/use an `edp` GitHub organization before choosing GitHub
+Packages.
+
 The workspace uses `workspace:^` only for dependencies between packages in
 this repository. Published manifests are rewritten to normal semver ranges.
 An application repository uses released versions, for example:

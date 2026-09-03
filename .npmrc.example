@@ -9,3 +9,7 @@
 # GitHub Packages (the scope must match the GitHub owner/org):
 # @your-github-org:registry=https://npm.pkg.github.com
 # //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+# Note: this repository is owned by `huashidingxin`, but the package names use
+# the `@edp` scope. GitHub Packages will only accept that scope when `edp` is
+# the owning organization; otherwise use an internal/npm registry or rename
+# the package scope before publishing there.
