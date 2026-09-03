@@ -20,6 +20,8 @@ application repository.
 ```bash
 pnpm install
 pnpm run check
+pnpm run release:check
+pnpm run release:dry-run
 pnpm exec changeset
 pnpm run version
 pnpm run release
@@ -55,6 +57,19 @@ An application repository uses released versions, for example:
 Before the first release, configure the organization's npm registry in a
 local `.npmrc` (see `.npmrc.example`) and use a read-only token in application
 CI.
+
+For the first release, the two leaf packages already have version `0.1.0`.
+After the registry and publish token are configured, run:
+
+```bash
+pnpm run release
+```
+
+Changesets will publish an unpublished `0.1.0` automatically. It publishes
+`@edp/website-ui` and `@edp/website-runtime`; the latter declares the former
+as a normal semver dependency in the published manifest. For later changes,
+create a changeset, run `pnpm run version`, commit the resulting version/lock
+changes, and then run `pnpm run release` in CI.
 
 ## Application integration
 

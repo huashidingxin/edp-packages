@@ -15,9 +15,11 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "check": "pnpm run typecheck && pnpm run test",
+    "release:check": "node scripts/assert-publishable.mjs",
+    "release:dry-run": "pnpm run check && pnpm run release:check && pnpm publish -r --dry-run --no-git-checks",
     "changeset": "changeset",
     "version": "changeset version && pnpm install --lockfile-only",
-    "release": "pnpm run build && changeset publish"
+    "release": "pnpm run check && pnpm run release:check && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0"
