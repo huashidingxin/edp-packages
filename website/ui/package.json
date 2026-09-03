@@ -9,6 +9,9 @@
     "url": "git+https://github.com/huashidingxin/edp-packages.git",
     "directory": "website/ui"
   },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "publishConfig": {
     "access": "restricted"
   },
