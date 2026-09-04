@@ -9,6 +9,7 @@ declare module '#app' {
     public: {
       apiBase: string
       forceHost: string
+      applicationCode: string
       previewDomain: string
       /** '1' 时会话走 MockAuthProvider（契约先行）。 */
       authMock?: string

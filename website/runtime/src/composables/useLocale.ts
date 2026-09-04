@@ -27,7 +27,7 @@ export interface SiteLocaleInfo {
  * 多语言约定（平台站点通用）：
  * - 默认语言无 URL 前缀；
  * - 其他启用语言使用 /{lang} 短码前缀（如 /en/products）；
- * - 所有 v2 接口请求显式带 ?locale= 当前语言，并且路径剥离前缀后传入。
+ * - 所有 /api/v1 接口请求显式带 ?locale= 当前语言，并且路径剥离前缀后传入。
  * - localePath(path) 将逻辑路径转回当前语言下的真实 URL（默认语言无前缀）。
  */
 export function useLocale() {

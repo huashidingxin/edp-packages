@@ -5,9 +5,15 @@ import { designPreviewTokenForHost } from '../src/api/preview.ts';
 import { tokensToCssVariables } from '../src/api/theme.ts';
 import type { ApiEnvelope, BootstrapResponse, PageDataResponse, CollectionResponse } from '../src/contracts/index.ts';
 
-function makeFetcher<TEnv>(env: TEnv, calls: Array<{ url: string; query?: Record<string, unknown>; method?: string; body?: unknown }> = []) {
+function makeFetcher<TEnv>(env: TEnv, calls: Array<{ url: string; query?: Record<string, unknown>; method?: string; body?: unknown; headers?: Record<string, string> }> = []) {
   const fetcher = async <T = unknown>(url: string, options?: Record<string, unknown>): Promise<T> => {
-    calls.push({ url, query: options?.query as Record<string, unknown> | undefined, method: options?.method as string | undefined, body: options?.body });
+    calls.push({
+      url,
+      query: options?.query as Record<string, unknown> | undefined,
+      method: options?.method as string | undefined,
+      body: options?.body,
+      headers: options?.headers as Record<string, string> | undefined,
+    });
     return env as unknown as T;
   };
   return { fetcher, calls };
@@ -19,7 +25,7 @@ test('designPreviewTokenForHost: matches subdomain of preview domain', () => {
   // Note: lfscmj.edp.hsdxchina.com is itself an Application domain; this function does NOT
   // have a blacklist, so callers (the Nuxt bootstrap composable) must disable preview-mode
   // behavior by leaving `previewDomain` blank or by checking the resolved token against the
-  // configured Application domain whitelist before sending it to v2 API.
+  // configured Application domain whitelist before sending it to /api/v1 API.
   assert.equal(designPreviewTokenForHost('lfscmj.edp.hsdxchina.com', 'edp.hsdxchina.com'), 'lfscmj');
 });
 
@@ -85,6 +91,32 @@ test('SiteClient error wraps envelope.error', async () => {
     assert.equal((err as SiteClientError).statusCode, 404);
     return true;
   });
+});
+
+test('SiteClient sends stable application code header when configured', async () => {
+  const env: ApiEnvelope<BootstrapResponse> = {
+    success: true,
+    data: {
+      site: { application_id: 3, code: 'shouchuangmoju', name: '廊坊', default_locale: 'zh-CN', enabled_locales: ['zh-CN'], tenant_id: 2, timezone: 'Asia/Shanghai', branding: { logo: null, logo_alt: 'L', favicon: null, show_name: true, copyright: null }, locales: [], ai_chat: { enabled: false } },
+      theme: { tokens: {}, version: '1', stylesheet: {} },
+      menus: { header: [], footer: [] },
+      strings: {},
+    },
+  };
+  const { fetcher, calls } = makeFetcher(env);
+  const client = new SiteClient({
+    apiBase: 'http://api.example.com',
+    host: 'localhost',
+    applicationCode: 'shouchuangmoju',
+    fetch: fetcher,
+  });
+
+  await client.bootstrap();
+  await client.submitForm('contact', { message: 'hello' });
+
+  assert.equal(client.getApplicationCode(), 'shouchuangmoju');
+  assert.deepEqual(calls[0]?.headers, { 'x-application-code': 'shouchuangmoju' });
+  assert.deepEqual(calls[1]?.headers, { 'x-application-code': 'shouchuangmoju' });
 });
 
 test('tokensToCssVariables: shadcn semantic + namespace', () => {

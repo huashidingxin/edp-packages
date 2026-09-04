@@ -31,6 +31,8 @@ export interface SiteClientOptions {
   apiBase: string;
   /** Host for tenant resolution. */
   host: string;
+  /** Stable application code for shared API domains, local debugging, and SSG builds. */
+  applicationCode?: string;
   /** Preview domain root for design preview token resolution. */
   previewDomain?: string;
   /** Optional fetch implementation. */
@@ -55,6 +57,7 @@ const KNOWN_FAILURE_STATUS = new Set([400, 401, 403, 404, 409, 422, 500, 502, 50
 export class SiteClient {
   protected readonly base: string;
   protected readonly host: string;
+  protected readonly applicationCode: string;
   protected readonly previewDomain: string;
   protected readonly fetcher: FetchLike;
   private authProvider?: AuthProvider;
@@ -64,6 +67,7 @@ export class SiteClient {
     if (!options.host) throw new SiteClientError(500, 'host is required');
     this.base = options.apiBase.replace(/\/$/, '');
     this.host = options.host;
+    this.applicationCode = options.applicationCode ?? '';
     this.previewDomain = options.previewDomain ?? '';
     this.authProvider = options.auth;
     this.fetcher = options.fetch ??
@@ -72,6 +76,12 @@ export class SiteClient {
   }
 
   getHost(): string { return this.host; }
+
+  getApplicationCode(): string { return this.applicationCode; }
+
+  protected identityHeaders(): Record<string, string> {
+    return this.applicationCode ? { 'x-application-code': this.applicationCode } : {};
+  }
 
   /** 站点访客会话（remote 契约端点；mock 由构造方注入）。 */
   get auth(): AuthProvider {
@@ -190,7 +200,13 @@ export class SiteClient {
 
     const res = await this.fetcher<ApiEnvelope<SubmitFormResult>>(
       `${this.base}/api/v1/site/forms/${encodeURIComponent(code)}/submit`,
-      { method: 'POST', query: { host: this.host }, body, ignoreResponseError: true } as Record<string, unknown>,
+      {
+        method: 'POST',
+        query: { host: this.host },
+        headers: this.identityHeaders(),
+        body,
+        ignoreResponseError: true,
+      } as Record<string, unknown>,
     );
     const env = res as ApiEnvelope<SubmitFormResult> | null;
     if (!env || !env.success || !env.data) {
@@ -205,7 +221,7 @@ export class SiteClient {
     if (query.locale) params.locale = query.locale;
     const res = await this.fetcher<Response>(`${this.base}/api/v1/site/sitemap.xml`, {
       query: params,
-      headers: { accept: 'application/xml' },
+      headers: { accept: 'application/xml', ...this.identityHeaders() },
       ignoreResponseError: true,
     } as Record<string, unknown>);
     if (res && typeof res.text === 'function') {
@@ -219,6 +235,7 @@ export class SiteClient {
   protected async request<T>(url: string, params: Record<string, string>): Promise<T> {
     const res = await this.fetcher<ApiEnvelope<T>>(url, {
       query: params,
+      headers: this.identityHeaders(),
       ignoreResponseError: true,
     } as Record<string, unknown>);
     const env = res as ApiEnvelope<T> | null;
@@ -237,6 +254,7 @@ export { KNOWN_FAILURE_STATUS };
 export interface UseSiteClientConfig {
   apiBase: string;
   host: string;
+  applicationCode?: string;
   previewDomain?: string;
   fetch?: FetchLike;
   auth?: AuthProvider;
@@ -247,6 +265,7 @@ export function createSiteClient(config: UseSiteClientConfig, fetchImpl?: FetchL
   return new SiteClient({
     apiBase: config.apiBase,
     host: config.host,
+    applicationCode: config.applicationCode,
     previewDomain: config.previewDomain,
     fetch: config.fetch ?? fetchImpl,
     auth: config.auth,

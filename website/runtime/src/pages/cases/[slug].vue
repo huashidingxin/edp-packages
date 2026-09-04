@@ -129,18 +129,18 @@ function makeNavHref(item: WebRecordNavItem): string {
           :href="localePath(recordPath('case', extractId(String(item.key), vals(item))))"
         />
       </WebGrid>
-      <template #pagination>
-        <div v-if="totalPages > 1" class="flex flex-col items-center gap-4">
-          <p class="web-num text-sm text-muted-foreground">{{ t('共 {count} 个案例', { count: total }) }}</p>
-          <OPagination :page="page" :total-pages="totalPages" :make-href="makePageHref" />
-        </div>
-      </template>
       <p v-else-if="collectionError" class="rounded-card border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
         {{ t('未找到该分类。') }}
       </p>
       <p v-else class="rounded-card border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
         {{ t('该分类暂无案例,敬请期待。') }}
       </p>
+      <template #pagination>
+        <div v-if="totalPages > 1" class="flex flex-col items-center gap-4">
+          <p class="web-num text-sm text-muted-foreground">{{ t('共 {count} 个案例', { count: total }) }}</p>
+          <OPagination :page="page" :total-pages="totalPages" :make-href="makePageHref" />
+        </div>
+      </template>
     </WebCollectionPage>
 
     <!-- 详情模式:媒体区走 SiteRecordMedia 站点挂点(缺省实现为图/集) -->

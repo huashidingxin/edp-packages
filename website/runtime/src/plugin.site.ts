@@ -1,7 +1,7 @@
 /**
  * SiteClient 注入 —— SSR bootstrap 预取 + 会话 provider 配置（universal）。
  *
- * - $site：SiteClient（host 解析 / preview token / auth provider）
+ * - $site：SiteClient（host / application code 解析 / preview token / auth provider）
  * - 服务端：预取 bootstrap 写入 payload，layout 与页面共享（整页单请求原则）
  * - 客户端：configureSession(client.auth) 供 WebUserArea 等 ClientOnly 岛使用
  *   （authMock=1 时注入 MockAuthProvider，契约先行、后端就绪零改动切换）
@@ -23,6 +23,7 @@ export default defineNuxtPlugin(async () => {
   const config = useRuntimeConfig()
   const apiBase = String(config.apiBase || config.public.apiBase || 'http://127.0.0.1:8787')
   const forceHost = String(config.public.forceHost || '')
+  const applicationCode = String(config.public.applicationCode || '')
   const previewDomain = String(config.public.previewDomain || '')
   const authMock = String(config.public.authMock || '') === '1'
 
@@ -39,6 +40,7 @@ export default defineNuxtPlugin(async () => {
     createSiteClient({
       apiBase,
       host: getHost(),
+      applicationCode,
       previewDomain,
       fetch: $fetch as unknown as FetchLike,
       ...(authMock ? { auth: new MockAuthProvider() } : {}),

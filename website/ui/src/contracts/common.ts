@@ -56,6 +56,7 @@ export interface AiChatPublicConfig {
   gradient?: { start: string; end: string };
   endpoint?: string;
   application_id?: number;
+  application_code?: string | null;
   [key: string]: unknown;
 }
 

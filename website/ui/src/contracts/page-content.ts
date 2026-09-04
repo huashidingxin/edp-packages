@@ -34,7 +34,8 @@ export interface PageContentPageSchema {
   fields: PageContentFieldSchema[];
 }
 
-export interface PageContentSchemaDocument {
+/** Static field schema registered by an application; this is not a page document or layout tree. */
+export interface PageContentSchema {
   project_id: string;
   schema_version: number;
   pages: PageContentPageSchema[];

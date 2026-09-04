@@ -3,7 +3,7 @@
  *
  * 分层：
  * - api/        数据通道（client / auth / theme / navigation / preview）
- * - contracts/  v2 Site API 类型契约
+ * - contracts/  /api/v1 Site API 类型契约
  * - blocks/     语义组件（Tailwind 实现 + o-* 覆盖钩子；交互行为直接组装 reka-ui 原件）
  * - auth/       会话 store
  * - lib/        纯逻辑工具（cn / nav / form / chat / media / ui 接线常量 …）

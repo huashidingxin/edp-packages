@@ -16,25 +16,26 @@
     "access": "restricted"
   },
   "files": [
-    "src"
+    "dist"
   ],
   "type": "module",
   "exports": {
     ".": {
-      "types": "./src/module.ts",
-      "import": "./src/module.ts"
+      "types": "./dist/module.d.ts",
+      "import": "./dist/module.js"
     },
     "./module": {
-      "types": "./src/module.ts",
-      "import": "./src/module.ts"
+      "types": "./dist/module.d.ts",
+      "import": "./dist/module.js"
     },
     "./composables": {
-      "types": "./src/composables.ts",
-      "import": "./src/composables.ts"
+      "types": "./dist/composables.d.ts",
+      "import": "./dist/composables.js"
     }
   },
-  "types": "./src/index.ts",
+  "types": "./dist/index.d.ts",
   "scripts": {
+    "build": "vite build && vue-tsc -p tsconfig.build.json && node ../../scripts/copy-package-assets.mjs",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "test": "node --experimental-strip-types --test \"tests/*.test.ts\""
   },
@@ -48,6 +49,7 @@
     "@types/node": "^22.10.0",
     "nuxt": "4.4.8",
     "typescript": "^5.9.3",
+    "vite": "^7.3.6",
     "vue": "^3.5.39",
     "vue-tsc": "^3.3.11"
   },

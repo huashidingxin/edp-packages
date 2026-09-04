@@ -14,11 +14,12 @@ import type {
 /** GET /api/v1/site/bootstrap */
 export interface BootstrapResponse {
   site: SiteInfo;
-  theme: ThemeInfo;
+  /** @deprecated 后端不再下发主题；仅保留历史兼容，新代码不要依赖。 */
+  theme?: ThemeInfo;
   menus: SiteMenus;
   /**
    * 站点导航/路由配置（默认栏目落地页、联系页路径与表单、about 路由映射、品牌 sections 等）。
-   * 来源 applications.settings.navigation（各站 seed 写入）；缺省由前端回落。
+   * 来源 application_configs.navigation（各站 seed 写入）；缺省由前端回落。
    */
   navigation?: SiteNavigation;
   /**

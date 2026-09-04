@@ -5,7 +5,7 @@ import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { useAsyncData, useNuxtApp, useRuntimeConfig } from 'nuxt/app'
 
 /**
- * v2 Site API 封装 — 整页单请求原则。
+ * /api/v1 Site API 封装 — 整页单请求原则。
  *
  * layout 调 useSiteBootstrap()；页面调 useSitePageData({ code })。
  * 整页之后的补充请求（翻页 / 切分类）用 useSiteCollection；
@@ -20,10 +20,11 @@ export function useSiteClient(): SiteClient {
     const config = useRuntimeConfig()
     const apiBase = String(config.apiBase || config.public.apiBase || 'http://127.0.0.1:8787')
     const forceHost = String(config.public.forceHost || '')
+    const applicationCode = String(config.public.applicationCode || '')
     const previewDomain = String(config.public.previewDomain || '')
     const fetcher: FetchLike = async (url, options) => $fetch(url, options as never) as Promise<never>
     const host = forceHost ? forceHost.split(':')[0]! : (import.meta.server ? 'localhost' : window.location.hostname)
-    return new SiteClient({ apiBase, host, previewDomain, fetch: fetcher })
+    return new SiteClient({ apiBase, host, applicationCode, previewDomain, fetch: fetcher })
   }
   return nuxt.$site as SiteClient
 }
@@ -136,7 +137,7 @@ export function useSiteCollection(opts: {
   )
 }
 
-/** GET /api/v2/site/records/{type}/{id} — 详情页补充请求（含 category 上下文）。 */
+/** GET /api/v1/site/records/{type}/{id} — 详情页补充请求（含 category 上下文）。 */
 export function useSiteRecord(opts: {
   type: string
   id?: MaybeRefOrGetter<number | null>
@@ -156,7 +157,7 @@ export function useSiteRecord(opts: {
   )
 }
 
-/** GET /api/v2/site/category — 分类上下文（sidebar/breadcrumbs/seo）。 */
+/** GET /api/v1/site/category — 分类上下文（sidebar/breadcrumbs/seo）。 */
 export function useSiteCategory(opts: {
   path?: MaybeRefOrGetter<string | null>
   categoryId?: MaybeRefOrGetter<number | null>

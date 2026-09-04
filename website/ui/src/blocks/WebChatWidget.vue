@@ -172,7 +172,10 @@ async function sendMessage() {
   isTyping.value = true
 
   const host = isClient() ? window.location.hostname : ''
-  const url = `${props.config.endpoint}?host=${encodeURIComponent(host)}`
+  const params = new URLSearchParams()
+  if (host) params.set('host', host)
+  if (props.config.application_code) params.set('application_code', props.config.application_code)
+  const url = `${props.config.endpoint}?${params.toString()}`
   abortController = new AbortController()
 
   let aiMessage: ChatMessage | null = null
