@@ -130,9 +130,20 @@ function parseQuery(url: string): Record<string, string> {
   return query
 }
 
-function currentStackDepth(): number {
+/** 取当前页面栈：`getCurrentPages` 是 uni 全局函数（各端一致），不在 `uni` 对象上；`uni.getCurrentPages` 仅作兜底。 */
+function stackPages(): unknown[] | undefined {
+  const getter = (globalThis as unknown as { getCurrentPages?: () => unknown }).getCurrentPages
+  if (typeof getter === 'function') return getter() as unknown[]
   const u = getUni()
-  const pages = u && typeof u.getCurrentPages === 'function' ? u.getCurrentPages() : undefined
+  return u && typeof u.getCurrentPages === 'function' ? (u.getCurrentPages() as unknown[]) : undefined
+}
+
+/**
+ * 当前页面栈深；无法获取（非 uni 容器 / API 缺失）时返回 0 表示「未知」。
+ * 调用方必须区分「已知 1 页」与「未知」：未知时不能把返回拦截成回首页。
+ */
+function currentStackDepth(): number {
+  const pages = stackPages()
   return Array.isArray(pages) ? pages.length : 0
 }
 
@@ -241,13 +252,16 @@ export function openPath(
 }
 
 /**
- * 统一返回：栈内可回退则 `navigateBack`，否则回落兜底页。
+ * 统一返回：栈内可回退则 `navigateBack`，栈内确认只剩一页时回落兜底页。
+ * 栈深未知（getCurrentPages 不可用）时也尽力 `navigateBack`，不劫持成回首页。
  * 装了拦截器后这条规则对裸调 `uni.navigateBack` 同样生效（两者结论一致，不冲突）。
  */
 export function goBack(fallbackPath?: string): void {
+  console.log(1111)
   if (!hasUni()) return
   const u = getUni()
-  if (currentStackDepth() > 1 && typeof u.navigateBack === 'function') {
+  console.log('-0--------',currentStackDepth())
+  if (currentStackDepth() !== 1 && typeof u.navigateBack === 'function') {
     u.navigateBack({ delta: 1 })
     return
   }
@@ -294,7 +308,9 @@ export function installAppRouteInterceptor(options: { guard?: AppRouteGuard } = 
       invoke(raw: unknown): unknown {
         if (state.forwarding) return raw // 纠正后的转发直通，避免守卫被调用两次
         if (method === 'navigateBack') {
-          if (currentStackDepth() <= 1) {
+          // 只有「确认栈内只剩一页」才回落兜底首页（分享/扫码直达的场景）；
+          // 栈深未知（getCurrentPages 不可用，返回 0）时必须放行，否则所有返回都会被劫持到首页
+          if (currentStackDepth() === 1) {
             openPath(`/${state.homePath}`)
             return false
           }

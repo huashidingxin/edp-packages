@@ -18,7 +18,9 @@
 import { getGlobalSingleton, getUni, hasUni } from './global.ts'
 
 export type Method = 'GET' | 'POST' | 'PUT' | 'DELETE'
-export type Params = Record<string, string | number | boolean | null | undefined>
+/** 数组值序列化为重复参数（`category_ids[]=1&category_ids[]=2`），后端按数组解析。 */
+export type ParamValue = string | number | boolean | null | undefined | Array<string | number>
+export type Params = Record<string, ParamValue>
 
 export interface RequestCustom {
   /** 有 token 时是否带 Authorization（默认 true） */
@@ -226,8 +228,8 @@ function buildUrl(config: RequestOptions, baseURL: string): string {
     throw new AppRequestError(500, 'setupAppHttp() 未调用或 baseURL 为空', { code: 'NOT_CONFIGURED', config })
   }
   const pairs = Object.entries(config.params ?? {})
-    .filter(([, value]) => value !== null && value !== undefined && value !== '')
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .filter(([, value]) => present(value))
+    .flatMap(([key, value]) => presentValue(value).map((entry) => `${encodeURIComponent(key)}${Array.isArray(value) ? '[]' : ''}=${encodeURIComponent(String(entry))}`))
   return pairs.length ? `${url}${url.includes('?') ? '&' : '?'}${pairs.join('&')}` : url
 }
 
@@ -354,6 +356,15 @@ function uniTransport(options: {
       },
     })
   })
+}
+
+function present(value: ParamValue): boolean {
+  return Array.isArray(value) ? presentValue(value).length > 0 : value !== null && value !== undefined && value !== ''
+}
+
+function presentValue(value: ParamValue): Array<string | number | boolean> {
+  const entries = Array.isArray(value) ? value : [value as string | number | boolean]
+  return entries.filter((entry) => entry !== null && entry !== undefined && entry !== '')
 }
 
 function beginLoading(config: RequestOptions): () => void {

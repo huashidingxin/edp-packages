@@ -40,7 +40,7 @@ export {
 export type { HttpConfig, Method, Params, RequestCustom, RequestOptions } from './request.ts'
 export { Resource } from './resource.ts'
 export { appSite, sourceItemId } from './site.ts'
-export type { CollectionParams, LocaleParams, PageDataParams, SubmitFormOptions } from './site.ts'
+export type { CategoryTreeParams, CollectionParams, LocaleParams, PageDataParams, SubmitFormOptions } from './site.ts'
 export { useAppCollection } from './collection.ts'
 
 // 主题
@@ -96,6 +96,8 @@ export type {
 export type {
   ApiEnvelope,
   BootstrapResponse,
+  CategoryNode,
+  CategoryTreeResponse,
   CollectionResponse,
   FormResponse,
   PageDataResponse,

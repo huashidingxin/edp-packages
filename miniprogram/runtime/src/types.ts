@@ -66,6 +66,22 @@ export interface PageDataResponse {
   blocks: Record<string, Record<string, unknown> | unknown[] | null>
 }
 
+/** GET /api/v1/site/categories?type=… —— 单类型分类树（列表页自建导航用）。 */
+export interface CategoryNode {
+  id: number
+  title: string
+  slug: string
+  /** 命名空间前缀的完整路径，如 `/cases/xuanchuanpian`。 */
+  path: string
+  children: CategoryNode[]
+}
+
+export interface CategoryTreeResponse {
+  type: string
+  namespace: string
+  items: CategoryNode[]
+}
+
 /** GET /api/v1/site/records/{type}/{id} */
 export interface RecordResponse {
   record: SourceItem | null

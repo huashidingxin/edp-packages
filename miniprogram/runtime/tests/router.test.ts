@@ -79,6 +79,16 @@ function removeUni(): void {
   delete (globalThis as unknown as { uni?: unknown }).uni;
 }
 
+/** 真实 uni 平台形态：getCurrentPages 是全局函数，不在 uni 对象上。 */
+function useGlobalGetCurrentPages(depth: number): void {
+  const g = globalThis as unknown as { getCurrentPages?: () => unknown };
+  g.getCurrentPages = () => Array.from({ length: depth }, () => ({}));
+}
+
+function removeGlobalGetCurrentPages(): void {
+  delete (globalThis as unknown as { getCurrentPages?: unknown }).getCurrentPages;
+}
+
 test('collectTabPaths：抽取、去重、归一化，忽略非法项', () => {
   assert.deepEqual(collectTabPaths(pagesJson), ['pages/index/index', 'pages/mine/mine']);
   assert.deepEqual(collectTabPaths({ pages: [] }), []);
@@ -206,6 +216,36 @@ test('拦截器：navigateBack 栈内一页 → 回落兜底首页；栈内多�
 
   calls = [];
   stackDepth = 3;
+  u.navigateBack({ delta: 1 });
+  assert.deepEqual(calls, [{ method: 'navigateBack', url: '' }]);
+});
+
+test('拦截器：真实平台形态（getCurrentPages 挂全局）多页放行、一页回落（回归：返回被劫持到首页）', () => {
+  begin();
+  // 假 uni 摘掉 uni.getCurrentPages，只留全局形态 —— 复现真机：栈深曾恒为 0，所有返回都被回首页
+  delete (globalThis as unknown as { uni: Record<string, unknown> }).uni.getCurrentPages;
+  installAppRouteInterceptor();
+  const u = (globalThis as unknown as { uni: { navigateBack: (o?: unknown) => void } }).uni;
+
+  useGlobalGetCurrentPages(3);
+  u.navigateBack({ delta: 1 });
+  assert.deepEqual(calls, [{ method: 'navigateBack', url: '' }], '栈内多页必须原样返回');
+
+  calls = [];
+  useGlobalGetCurrentPages(1);
+  u.navigateBack({ delta: 1 });
+  assert.deepEqual(calls, [{ method: 'switchTab', url: '/pages/index/index' }], '分享直达（栈内一页）才回落兜底首页');
+
+  removeGlobalGetCurrentPages();
+});
+
+test('拦截器：栈深未知（getCurrentPages 不可用）→ navigateBack 放行，不劫持回首页', () => {
+  begin();
+  delete (globalThis as unknown as { uni: Record<string, unknown> }).uni.getCurrentPages;
+  removeGlobalGetCurrentPages();
+  installAppRouteInterceptor();
+  const u = (globalThis as unknown as { uni: { navigateBack: (o?: unknown) => void } }).uni;
+
   u.navigateBack({ delta: 1 });
   assert.deepEqual(calls, [{ method: 'navigateBack', url: '' }]);
 });

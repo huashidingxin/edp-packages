@@ -1,11 +1,12 @@
 /** 小程序/H5/APP 的公开业务 API；不依赖网站路由、Host 或 Nuxt。 */
 import { getPlatformDevice } from './platform.ts'
 import { getHttpConfig, http, type Params, type RequestOptions } from './request.ts'
-import type { BootstrapResponse, CollectionResponse, FormResponse, PageDataResponse, RecordResponse, SourceItem, SubmitFormResult } from './types.ts'
+import type { BootstrapResponse, CategoryTreeResponse, CollectionResponse, FormResponse, PageDataResponse, RecordResponse, SourceItem, SubmitFormResult } from './types.ts'
 
 type ReadOptions = Omit<RequestOptions, 'url' | 'method' | 'params' | 'data'>
 export interface LocaleParams { locale?: string }
 export interface PageDataParams extends LocaleParams { id?: number | string; [parameter: string]: string | number | undefined }
+export interface CategoryTreeParams extends LocaleParams { /** 集合 kind 或路径命名空间：`case-study` / `cases` / `product` / `article` / `gallery`。 */ type: string }
 export type CollectionParams = Params & { locale?: string; page?: number; limit?: number; pagination?: 'simple' | 'full' }
 export interface SubmitFormOptions extends LocaleParams {
   context?: Record<string, unknown>
@@ -24,6 +25,13 @@ export const appSite = {
   },
   collection(kind: string, params: CollectionParams = {}, options?: ReadOptions): Promise<CollectionResponse> {
     return http.get(`/site/collections/${segment(kind)}`, withLocale({ ...params, pagination: params.pagination ?? 'simple' }), options)
+  },
+  /**
+   * 单类型分类树：顶层节点即大分类，`children` 即子类。
+   * 列表页（如案例页顶部 tab）据此自建导航，再按分类 id 取集合。
+   */
+  categories(params: CategoryTreeParams, options?: ReadOptions): Promise<CategoryTreeResponse> {
+    return http.get('/site/categories', withLocale({ ...params }), options)
   },
   record(kind: string, id: number | string, params: LocaleParams = {}, options?: ReadOptions): Promise<RecordResponse> {
     return http.get(`/site/records/${segment(kind)}/${segment(id)}`, withLocale({ ...params }), options)
