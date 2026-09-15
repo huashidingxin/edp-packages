@@ -137,7 +137,7 @@ export interface BreadcrumbItem {
 export interface RecordNavigationItem {
   title: string;
   id: number;
-  path: string;
+  slug: string | null;
 }
 
 /** 上下文引用。 */
@@ -163,6 +163,8 @@ export interface SourceMeta {
   page?: number;
   per_page?: number;
   total_pages?: number;
+  /** 有界列表使用此字段，不计算 total / total_pages。 */
+  has_more?: boolean;
   page_param?: string;
   [key: string]: unknown;
 }
@@ -226,11 +228,4 @@ export interface FormSchema {
   /** 表单级设置：`{ rule_spec?: { enabled?, options: { rule_id, label? }[] } }` 等。 */
   settings?: unknown;
   fields: FormField[];
-}
-
-/** 设计预览状态。 */
-export interface PreviewState {
-  is_preview: boolean;
-  token?: string;
-  workspace_id?: number;
 }

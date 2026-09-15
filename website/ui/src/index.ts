@@ -2,7 +2,7 @@
  * /website-ui —— 统一出口。
  *
  * 分层：
- * - api/        数据通道（client / auth / theme / navigation / preview）
+ * - api/        数据通道（client / auth / theme / navigation）
  * - contracts/  /api/v1 Site API 类型契约
  * - blocks/     语义组件（Tailwind 实现 + o-* 覆盖钩子；交互行为直接组装 reka-ui 原件）
  * - auth/       会话 store
@@ -16,7 +16,6 @@ export { AuthError, MockAuthProvider, RemoteAuthProvider, createMemoryAuthStorag
 export type { AuthProvider, AuthMode, MockAuthStorage } from './api/auth.ts';
 export { tokensToCssVariables, resolveStylesheet } from './api/theme.ts';
 export { buildRecordBreadcrumb, pickNext, pickPrevious } from './api/navigation.ts';
-export { designPreviewTokenForHost } from './api/preview.ts';
 
 // ── contracts ────────────────────────────────────────
 export * from './contracts/index.ts';
@@ -50,7 +49,7 @@ export {
 export type { ChatSseEvent } from './lib/chat.ts';
 export type { ChatMessage, ChatState, ChatUiState } from './lib/chatStore.ts';
 export { useChatState, resetChatSession } from './lib/chatStore.ts';
-export { isModel, isVideo, mediaBadge, normalizeMedia } from './lib/media.ts';
+export { isModel, isVideo, mediaBadge, mediaSrc, mediaThumb, normalizeMedia } from './lib/media.ts';
 export type { MediaItem } from './lib/media.ts';
 export { clampIndex, safeNextIndex, safePrevIndex } from './lib/lightbox.ts';
 export { SHARE_CHANNELS, COPY_CHANNELS, buildShareUrl } from './lib/share.ts';

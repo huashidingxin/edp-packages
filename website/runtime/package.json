@@ -37,7 +37,8 @@
   "scripts": {
     "build": "vite build && vue-tsc -p tsconfig.build.json && node ../../scripts/copy-package-assets.mjs",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
-    "test": "node --experimental-strip-types --test \"tests/*.test.ts\""
+    "test": "node --experimental-strip-types --test \"tests/*.test.ts\"",
+    "test:ssr": "node tests/ssr.integration.mjs"
   },
   "dependencies": {
     "@edp/website-ui": "workspace:^",

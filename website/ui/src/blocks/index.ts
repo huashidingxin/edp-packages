@@ -8,6 +8,7 @@
 export { default as WebCarousel } from './WebCarousel.vue';
 export { default as WebMarquee } from './WebMarquee.vue';
 export { default as WebSection } from './WebSection.vue';
+export { default as WebModelViewer } from './WebModelViewer.vue';
 export { default as WebGrid } from './WebGrid.vue';
 export { default as WebBreadcrumbs } from './WebBreadcrumbs.vue';
 export type { WebBreadcrumbEntry } from './WebBreadcrumbs.vue';

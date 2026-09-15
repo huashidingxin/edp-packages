@@ -1,67 +1,43 @@
-/**
- * SiteClient 注入 —— SSR bootstrap 预取 + 会话 provider 配置（universal）。
- *
- * - $site：SiteClient（host / application code 解析 / preview token / auth provider）
- * - 服务端：预取 bootstrap 写入 payload，layout 与页面共享（整页单请求原则）
- * - 客户端：configureSession(client.auth) 供 WebUserArea 等 ClientOnly 岛使用
- *   （authMock=1 时注入 MockAuthProvider，契约先行、后端就绪零改动切换）
- */
+/** SiteClient injection, concurrent SSR data prefetch, and session setup. */
 import { createSiteClient } from '@edp/website-ui/client'
 import { MockAuthProvider } from '@edp/website-ui/auth'
 import { configureSession } from '@edp/website-ui/session'
-import type { FetchLike, SiteClient } from '@edp/website-ui/client'
-// 模块内插件文件不做自动 import 转换，必须显式引入 Nuxt API
+import type { FetchLike } from '@edp/website-ui/client'
+import type { BootstrapResponse } from '@edp/website-ui/contracts'
 import {
-  defineNuxtPlugin,
-  useRuntimeConfig,
-  useRequestHeaders,
-  useNuxtApp,
-  useState,
+  addRouteMiddleware, defineNuxtPlugin, useRuntimeConfig,
+  useRequestHeaders, useRequestURL, useState,
 } from 'nuxt/app'
+import { prefetchSiteData, requestLocaleFromPath, resolvePageDataRoute } from './lib/siteRequests.ts'
 
-export default defineNuxtPlugin(async () => {
+export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const apiBase = String(config.apiBase || config.public.apiBase || 'http://127.0.0.1:8787')
   const forceHost = String(config.public.forceHost || '')
   const applicationCode = String(config.public.applicationCode || '')
-  const previewDomain = String(config.public.previewDomain || '')
   const authMock = String(config.public.authMock || '') === '1'
-
-  const getHost = (): string => {
-    if (forceHost) return forceHost.split(':')[0] || forceHost
-    if (import.meta.server) {
-      const headers = useRequestHeaders(['host'])
-      return (headers.host || 'localhost').split(':')[0] || 'localhost'
-    }
-    return window.location.hostname
-  }
-
-  const makeClient = (): SiteClient =>
-    createSiteClient({
-      apiBase,
-      host: getHost(),
-      applicationCode,
-      previewDomain,
-      fetch: $fetch as unknown as FetchLike,
-      ...(authMock ? { auth: new MockAuthProvider() } : {}),
-    })
-
-  const client = makeClient()
+  const requestHost = import.meta.server ? useRequestHeaders(['host']).host : window.location.hostname
+  const host = (forceHost || requestHost || 'localhost').split(':')[0] || 'localhost'
+  const client = createSiteClient({
+    apiBase, host, applicationCode, fetch: $fetch as unknown as FetchLike,
+    ...(authMock ? { auth: new MockAuthProvider() } : {}),
+  })
   configureSession(client.auth)
 
   if (import.meta.server) {
-    const data = await client.bootstrap().catch(() => null)
-    useState('web:bootstrap:data', () => data)
-    // 预取结果写入 payload 缓存，layout 的 useSiteBootstrap 同 key 直接命中，避免重复请求
-    const defaultLocale = data?.site?.default_locale
-    if (defaultLocale && data) {
-      useNuxtApp().payload.data[`web:bootstrap:${defaultLocale}`] = data
-    }
+    const state = useState<BootstrapResponse | null>('web:bootstrap:data', () => null)
+    // Start immediately, without blocking router resolution and page request scheduling.
+    void prefetchSiteData(nuxtApp, client, requestLocaleFromPath(useRequestURL().pathname))
+      .then((data) => { if (data) state.value = data })
+
+    addRouteMiddleware('website-data', async (to) => {
+      const data = await prefetchSiteData(
+        nuxtApp, client, requestLocaleFromPath(to.path),
+        resolvePageDataRoute(to.meta.sitePageData, to.params, to.query),
+      )
+      if (data) state.value = data
+    }, { global: true })
   }
 
-  return {
-    provide: {
-      site: client,
-    },
-  }
+  return { provide: { site: client } }
 })

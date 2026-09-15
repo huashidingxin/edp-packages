@@ -93,6 +93,7 @@ useHead({
 </script>
 
 <template>
+  <div>
   <div v-if="record?.record">
     <!-- 面包屑带 -->
     <section class="bg-secondary text-secondary-foreground">
@@ -208,5 +209,6 @@ useHead({
       <p class="mt-6 text-sm text-muted-foreground">{{ t('该职位不存在或已下架。') }}</p>
       <a :href="localePath('/jobs')" class="mt-6 inline-flex h-10 items-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground shadow-card transition-colors hover:bg-primary/90">{{ t('返回招聘中心') }}</a>
     </div>
+  </div>
   </div>
 </template>

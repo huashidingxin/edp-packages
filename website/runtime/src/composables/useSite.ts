@@ -1,101 +1,78 @@
 import { SiteClient, type FetchLike } from '@edp/website-ui/client'
 import type { BootstrapResponse, CollectionQuery, PageDataQuery, PageDataResponse, CollectionResponse, RecordResponse, CategoryResponse, SubmitFormOptions, SubmitFormResult, LocaleCode, MenuItem, SiteInfo, ThemeInfo, SiteMenus } from '@edp/website-ui/contracts'
 import { useLocaleLight } from './useLocaleLight.ts'
-import { computed, toValue, type MaybeRefOrGetter } from 'vue'
-import { useAsyncData, useNuxtApp, useRuntimeConfig } from 'nuxt/app'
+import { computed, toValue, watch, type MaybeRefOrGetter } from 'vue'
+import { useAsyncData, useNuxtApp, useRuntimeConfig, useState, type NuxtApp } from 'nuxt/app'
+import { bootstrapKey, pageDataKey, sharedSiteRequest, stableQueryKey } from '../lib/siteRequests.ts'
+import { loadImageCategory } from '../lib/imageCategory.ts'
 
-/**
- * /api/v1 Site API 封装 — 整页单请求原则。
- *
- * layout 调 useSiteBootstrap()；页面调 useSitePageData({ code })。
- * 整页之后的补充请求（翻页 / 切分类）用 useSiteCollection；
- * 详情补充 useSiteRecord、分类上下文补充 useSiteCategory；
- * 表单提交直接用 submitForm。
- */
-
+/** Layout reads bootstrap; pages read page-data; lists/details request additional data on demand. */
 export function useSiteClient(): SiteClient {
   const nuxt = useNuxtApp()
   if (!nuxt.$site) {
-    // SSR + 客户端容错：fallback 构造
     const config = useRuntimeConfig()
     const apiBase = String(config.apiBase || config.public.apiBase || 'http://127.0.0.1:8787')
     const forceHost = String(config.public.forceHost || '')
     const applicationCode = String(config.public.applicationCode || '')
-    const previewDomain = String(config.public.previewDomain || '')
     const fetcher: FetchLike = async (url, options) => $fetch(url, options as never) as Promise<never>
     const host = forceHost ? forceHost.split(':')[0]! : (import.meta.server ? 'localhost' : window.location.hostname)
-    return new SiteClient({ apiBase, host, applicationCode, previewDomain, fetch: fetcher })
+    return new SiteClient({ apiBase, host, applicationCode, fetch: fetcher })
   }
   return nuxt.$site as SiteClient
 }
 
-const BOOTSTRAP_KEY = 'web:bootstrap'
-
-/**
- * SSR/CSR 同一次渲染内共享 bootstrap promise（按 nuxtApp + key），
- * 避免多个 useT() 组件对同一语言各发一次 bootstrap 请求。
- * useAsyncData 的 getCachedData 只覆盖"已完成的缓存"，不覆盖"进行中"的请求。
- */
-const bootstrapPromises = new WeakMap<object, Map<string, Promise<BootstrapResponse | null>>>()
-
-function sharedBootstrap(nuxtApp: object, key: string, fetch: () => Promise<BootstrapResponse>): Promise<BootstrapResponse | null> {
-  let perApp = bootstrapPromises.get(nuxtApp)
-  if (!perApp) {
-    perApp = new Map()
-    bootstrapPromises.set(nuxtApp, perApp)
-  }
-  const existing = perApp.get(key)
-  if (existing) return existing
-  const promise = fetch().then((data) => data, () => null)
-  perApp.set(key, promise)
-  return promise
+// SSR prefetch and hydration may reuse payload data. Explicit refreshes must reach the API.
+function payloadData<T>(key: string, app: NuxtApp, context: { cause: string }): T | undefined {
+  return context.cause === 'initial' ? app.payload.data[key] as T | undefined : undefined
 }
 
 export function useSiteBootstrap(opts: { server?: boolean } = {}) {
   const client = useSiteClient()
   const nuxtApp = useNuxtApp()
-  const { locale } = useLocaleLight()
-  // bootstrap 响应到达后 locale 前缀（/en）才可解析；key 需响应式以重取正确语言
-  const key = computed(() => `${BOOTSTRAP_KEY}:${locale.value}`)
-  return useAsyncData<BootstrapResponse | null>(
+  const state = useState<BootstrapResponse | null>('web:bootstrap:data', () => null)
+  const { requestLocale } = useLocaleLight()
+  const key = computed(() => bootstrapKey(requestLocale.value))
+  const result = useAsyncData<BootstrapResponse | null>(
     key,
-    () => sharedBootstrap(nuxtApp, key.value, () => client.bootstrap(locale.value ? { locale: locale.value } : {})),
-    {
-      server: opts.server ?? true,
-      default: () => null,
-      // SSR 下跨组件共享同 key 结果，避免每个 useT() 组件各发一次 bootstrap 请求。
-      // Nuxt 默认 getCachedData 读 static.data（dev/prerender 为空），导致同 key 重复请求。
-      getCachedData: (k: string, app: import('nuxt/app').NuxtApp) =>
-        app.payload.data[k] as BootstrapResponse | null | undefined,
+    () => {
+      const locale = requestLocale.value
+      return sharedSiteRequest(nuxtApp, bootstrapKey(locale), () => client.bootstrap({ locale }))
     },
+    { server: opts.server ?? true, default: () => null, dedupe: 'defer', getCachedData: payloadData },
   )
+  watch(result.data, (data) => { if (data) state.value = data }, { immediate: true })
+  return result
 }
 
 export function useSitePageData(opts: {
   code: MaybeRefOrGetter<string>
-  id?: number | null
-  locale?: LocaleCode | null
+  params?: MaybeRefOrGetter<Record<string, number | string | undefined>>
+  id?: MaybeRefOrGetter<number | null>
+  locale?: MaybeRefOrGetter<LocaleCode | null>
   device?: string
-  preview?: boolean
   server?: boolean
 }) {
   const client = useSiteClient()
-  const { locale } = useLocaleLight()
-  const currentLocale = computed<LocaleCode>(() => opts.locale ?? locale.value)
+  const nuxtApp = useNuxtApp()
+  const { requestLocale } = useLocaleLight()
   const code = computed(() => String(toValue(opts.code) ?? ''))
-  const key = computed(() => `web:page-data:${code.value}:${opts.id ?? ''}:${currentLocale.value}:${opts.device ?? 'web'}:${opts.preview ? '1' : '0'}`)
-
+  const query = computed<PageDataQuery>(() => ({
+    ...(toValue(opts.params) ?? {}),
+    locale: toValue(opts.locale) ?? requestLocale.value,
+    ...(opts.id !== undefined ? { id: toValue(opts.id) ?? undefined } : {}),
+    device: opts.device,
+  }))
+  const key = computed(() => pageDataKey(code.value, query.value))
   return useAsyncData<PageDataResponse | null>(
     key,
-    () => (code.value
-      ? client.pageData(code.value, {
-          locale: currentLocale.value || undefined,
-          id: opts.id ?? undefined,
-          device: opts.device,
-          preview: opts.preview,
-        })
-      : Promise.resolve(null)),
-    { server: opts.server ?? true, default: () => null },
+    () => {
+      const pageCode = code.value
+      const params = query.value
+      return pageCode
+        ? sharedSiteRequest(nuxtApp, pageDataKey(pageCode, params), () => client.pageData(pageCode, params))
+        : Promise.resolve(null)
+    },
+    { server: opts.server ?? true, default: () => null, dedupe: 'defer', getCachedData: payloadData },
   )
 }
 
@@ -105,89 +82,81 @@ export function useSiteCollection(opts: {
   page?: MaybeRefOrGetter<number>
   categorySlug?: MaybeRefOrGetter<string | null>
   filters?: MaybeRefOrGetter<Record<string, unknown> | null>
-  locale?: LocaleCode | null
+  locale?: MaybeRefOrGetter<LocaleCode | null>
   server?: boolean
 }) {
   const client = useSiteClient()
-  const { locale } = useLocaleLight()
-  const currentLocale = opts.locale ?? locale.value
-  const categorySlug = computed(() => (opts.categorySlug != null ? toValue(opts.categorySlug) : null) ?? null)
-  const limit = computed(() => (opts.limit != null ? Math.max(1, Math.floor(toValue(opts.limit))) : undefined))
-  const page = computed(() => (opts.page != null ? Math.max(1, Math.floor(toValue(opts.page))) : undefined))
-  const filters = computed(() => toValue(opts.filters) ?? null)
-  // 必须保持响应式：key 变化才会触发 useAsyncData 重新拉取（否则切筛选无反应）。
-  const filtersKey = computed(() =>
-    Object.entries(filters.value ?? {})
-      .filter(([, v]) => v !== null && v !== undefined && v !== '')
-      .map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(',') : String(v)}`)
-      .join('&'),
-  )
-  const key = computed(() => `web:collection:${opts.type}:${limit.value ?? 12}:${page.value ?? 1}:${categorySlug.value}:${filtersKey}:${currentLocale}`)
-
+  const { requestLocale } = useLocaleLight()
+  const query = computed<CollectionQuery>(() => ({
+    ...(toValue(opts.filters) ?? {}),
+    locale: toValue(opts.locale) ?? requestLocale.value,
+    ...(opts.limit != null ? { limit: Math.max(1, Math.floor(toValue(opts.limit))) } : {}),
+    ...(opts.page != null ? { page: Math.max(1, Math.floor(toValue(opts.page))) } : {}),
+    ...(toValue(opts.categorySlug) ? { category_slug: toValue(opts.categorySlug)! } : {}),
+  }))
+  const key = computed(() => `web:collection:${opts.type}:${stableQueryKey(query.value)}`)
   return useAsyncData<CollectionResponse | null>(
-    key,
-    () => client.collection(opts.type, {
-      locale: currentLocale || undefined,
-      limit: limit.value,
-      page: page.value,
-      ...(categorySlug.value ? { category_slug: categorySlug.value } : {}),
-      ...(filters.value ?? {}),
-    } as CollectionQuery),
-    { server: opts.server ?? true, default: () => null },
+    key, () => client.collection(opts.type, query.value),
+    { server: opts.server ?? true, default: () => null, dedupe: 'defer' },
   )
 }
 
-/** GET /api/v1/site/records/{type}/{id} — 详情页补充请求（含 category 上下文）。 */
 export function useSiteRecord(opts: {
   type: string
   id?: MaybeRefOrGetter<number | null>
-  locale?: LocaleCode | null
+  locale?: MaybeRefOrGetter<LocaleCode | null>
   server?: boolean
 }) {
   const client = useSiteClient()
-  const { locale } = useLocaleLight()
-  const currentLocale = opts.locale ?? locale.value
+  const { requestLocale } = useLocaleLight()
+  const currentLocale = computed(() => toValue(opts.locale) ?? requestLocale.value)
   const id = computed(() => toValue(opts.id) ?? null)
-  const key = computed(() => `web:record:${opts.type}:${id.value ?? ''}:${currentLocale}`)
-
+  const key = computed(() => `web:record:${opts.type}:${id.value ?? ''}:${currentLocale.value ?? 'default'}`)
   return useAsyncData<RecordResponse | null>(
     key,
-    () => (id.value ? client.record(opts.type, id.value, { locale: currentLocale || undefined }) : Promise.resolve(null)),
-    { server: opts.server ?? true, default: () => null },
+    () => id.value ? client.record(opts.type, id.value, { locale: currentLocale.value }) : Promise.resolve(null),
+    { server: opts.server ?? true, default: () => null, dedupe: 'defer' },
   )
 }
 
-/** GET /api/v1/site/category — 分类上下文（sidebar/breadcrumbs/seo）。 */
 export function useSiteCategory(opts: {
   path?: MaybeRefOrGetter<string | null>
   categoryId?: MaybeRefOrGetter<number | null>
-  locale?: LocaleCode | null
+  locale?: MaybeRefOrGetter<LocaleCode | null>
   server?: boolean
 }) {
   const client = useSiteClient()
-  const { locale } = useLocaleLight()
-  const currentLocale = opts.locale ?? locale.value
-  const path = computed(() => (opts.path != null ? toValue(opts.path) : null) ?? null)
-  const categoryId = computed(() => (opts.categoryId != null ? toValue(opts.categoryId) : null) ?? null)
-  const key = computed(() => `web:category:${path.value ?? ''}:${categoryId.value ?? ''}:${currentLocale}`)
-
+  const { requestLocale } = useLocaleLight()
+  const currentLocale = computed(() => toValue(opts.locale) ?? requestLocale.value)
+  const path = computed(() => toValue(opts.path) ?? null)
+  const categoryId = computed(() => toValue(opts.categoryId) ?? null)
+  const key = computed(() => `web:category:${path.value ?? ''}:${categoryId.value ?? ''}:${currentLocale.value ?? 'default'}`)
   return useAsyncData<CategoryResponse | null>(
     key,
-    () => ((path.value || categoryId.value)
+    () => (path.value || categoryId.value)
       ? client.category({
           ...(path.value ? { path: path.value } : {}),
           ...(categoryId.value ? { category_id: categoryId.value } : {}),
-          locale: currentLocale || undefined,
+          locale: currentLocale.value,
         })
-      : Promise.resolve(null)),
-    { server: opts.server ?? true, default: () => null },
+      : Promise.resolve(null),
+    { server: opts.server ?? true, default: () => null, dedupe: 'defer' },
   )
+}
+
+export function useSiteImageCategory(path: MaybeRefOrGetter<string>) {
+  const client = useSiteClient()
+  const { requestLocale } = useLocaleLight()
+  const key = computed(() => `web:image-category:${toValue(path)}:${requestLocale.value ?? 'default'}`)
+  return useAsyncData(key, () => loadImageCategory(client, toValue(path), requestLocale.value), {
+    default: () => null, dedupe: 'defer', getCachedData: payloadData,
+  })
 }
 
 export async function submitForm(code: string, payload: Record<string, unknown>, opts: SubmitFormOptions = {}): Promise<SubmitFormResult> {
   const client = useSiteClient()
-  const { locale } = useLocaleLight()
-  return client.submitForm(code, payload, { ...opts, ...(opts.locale ? {} : locale.value ? { locale: locale.value } : {}) })
+  const { requestLocale } = useLocaleLight()
+  return client.submitForm(code, payload, { ...opts, locale: opts.locale ?? requestLocale.value })
 }
 
 /* ---------- bootstrap-derived 工具派生 ---------- */

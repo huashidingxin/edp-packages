@@ -10,6 +10,21 @@ versions; they must not depend on `../../packages` paths.
   theme/navigation helpers, and website UI logic.
 - `website/runtime` → `@edp/website-runtime`: Nuxt module, layouts,
   composables, and standard website pages. It depends on `@edp/website-ui`.
+- `miniprogram/runtime` → `@edp/miniprogram-runtime`: uni-app 公共层（**跨端：小程序 / H5 / APP**）。
+  只做**公共工具与公共请求**，不做业务组件：`http` 请求封装与拦截、`appSite` 公开业务 API、`useAppCollection` 原生分页状态、`Resource` 通用 REST 工具、
+  品牌令牌（含 uview 色板同步）、跨端路由（`openPath` / `openLink` / 原生 tabBar 的 `switchTab`
+  纠正与咽喉点拦截）、整站 bootstrap、全局便捷入口（`uni.$edp` / `uni.Resource`）、端信息推导
+  （`getPlatformDevice()`）、一次性装配（`setupAppRuntime`），以及可测纯逻辑。
+  基础信息与词条（`/site/bootstrap?include=site,strings`）走**内存单例 + 本地缓存**的 stale-while-revalidate：
+  冷启动先渲染缓存、同时请求覆盖；应用/API/语言隔离，reset/切换上下文后忽略旧响应。
+  业务页在各应用侧用 `uni_modules/uview-plus` 自由拼装、各自请求数据。
+  与 web 侧的差异：**没有 `pages/` 标准页面模板库**——uni-app `pages.json` 必须由应用声明。
+
+> 2026-09 决策：早期设计的 `@edp/miniprogram-ui`（16 个 `Mp*` 组件）与
+> `@edp/miniprogram-runtime` 里一批无真实消费方的工具（hooks 注入 / lib 工具集 /
+> 通用拦截器链）已**整体删除**。公共布局与更多工具等后续从真实应用中**抽取**，
+> 不再预先设计。命名统一去掉 `Mp` 前缀（`Mp*` → `App*`，如 `setupAppRuntime`），
+> 因为同一份代码会编到 H5 / APP，`mp` 过于局限。
 
 Future platform packages belong in `miniprogram/`, `shared/`, or `tooling/`
 when there is a real second consumer. Keep application-specific code in the

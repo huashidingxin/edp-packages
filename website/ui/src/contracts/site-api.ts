@@ -19,7 +19,7 @@ export interface BootstrapResponse {
   menus: SiteMenus;
   /**
    * 站点导航/路由配置（默认栏目落地页、联系页路径与表单、about 路由映射、品牌 sections 等）。
-   * 来源 application_configs.navigation（各站 seed 写入）；缺省由前端回落。
+   * 来源 application_settings.navigation（各站 seed 写入）；缺省由前端回落。
    */
   navigation?: SiteNavigation;
   /**
@@ -47,7 +47,7 @@ export interface SiteNavigation {
 
 /* ---------- 轻量接口的响应类型 ---------- */
 
-/** GET /api/v1/site/collections/{type} 与 page-data.sections 中的集合区块。 */
+/** GET /api/v1/site/collections/{type}。具名块直接返回模型数组。 */
 export interface CollectionResponse {
   items: SourceItem[];
   meta: SourceResult['meta'];
@@ -76,7 +76,7 @@ export interface CategoryResponse {
 
 /** GET /api/v1/site/content。 */
 export interface ContentResponse {
-  content: Record<string, unknown> | null;
+  content: Record<string, unknown> | unknown[] | null;
 }
 
 /** GET /api/v1/site/media/{id}。 */
@@ -91,13 +91,13 @@ export interface MediaResponse {
 
 /** 整页主入口 GET /api/v1/site/page-data/{code} 的 query。 */
 export interface PageDataQuery {
+  /** Additional IDs explicitly bound by the page configuration. */
+  [parameter: string]: string | number | undefined;
   host?: string;
   locale?: string;
-  /** Record 详情页 id；仅当 code 等于记录类型时使用。 */
+  /** 供配置的 id_param=id 或 related 列表使用。 */
   id?: number;
   device?: string;
-  /** 设计预览模式：跳过缓存、允许读草稿 schema（需配合 preview token）。 */
-  preview?: boolean;
 }
 
 export interface PageBannerItem {
@@ -122,35 +122,38 @@ export interface PageBannerConfig {
 
 /** GET /api/v1/site/page-data/{code} */
 export type PageDataResponse = {
-  /** 页面身份；路由未命中为 null。 */
+  /** 页面身份；页面或配置不存在时接口返回 404。 */
   page: {
     id: number;
     code: string;
     slug: string | null;
     title: string | null;
-    type: 'home' | 'static' | 'list' | 'detail' | 'custom' | null;
+    type: 1 | 2 | 3 | 4 | null;
     locale: string;
-  } | null;
+  };
   locale: string;
-  /** 页面级 Banner：page_locales.banner 解析后的 PageBannerConfig（多图轮播+标题+副标题），随整页一次性返回。 */
-  banner?: PageBannerConfig | null;
-  /** schema 顶层 content_key 对应的 page_contents（已 locale fallback + 媒体解析）。 */
-  content: Record<string, unknown> | null;
-  /** 各 section 的 Provider 结果，key 来自 schema。 */
-  sections: Record<string, CollectionResponse | Record<string, unknown> | null>;
+  /** Block names and model/static fields belong to each application. */
+  blocks: Record<string, Record<string, unknown> | unknown[] | null>;
 };
 
-/** Schema 文档形状（后台 page_data_schemas.schema JSON）。 */
+export type ModelFilter = [string | string[], '=' | '<>' | '>' | '>=' | '<' | '<=' | 'in' | 'between' | 'json_contains' | 'like', unknown];
+export type ModelSort = { key: string; order: 'asc' | 'desc' };
+export type ModelFields = string | string[] | Record<string, string[]>;
+export type ModelBlockConfig = {
+  type: string;
+  filters?: ModelFilter[];
+  sort_by?: ModelSort[] | string;
+  fields?: ModelFields;
+  category_slug?: string;
+} & ({ mode: 'list'; limit?: number; related?: boolean } | { mode: 'one'; id?: number; id_param?: string });
+
+/** Current page_data_schemas.schema source configuration, never a layout/field manifest. */
 export interface PageDataSchemaDoc {
-  /** 顶层静态内容键（page_contents.content_key）。 */
-  content_key?: string;
-  sections: Record<
-    string,
-    {
-      provider: 'collection_list' | 'static_content' | 'record_detail';
-      config: Record<string, unknown>;
-    }
-  >;
+  blocks: Record<string, { enabled?: boolean } & (
+    { provider: 'model'; config: ModelBlockConfig }
+    | { provider: 'static_content'; config: { content_key: string; page_code?: string; path?: Array<string | number> } }
+    | { provider: 'page_banner'; config: { fallback?: 'none' | 'static_template' } }
+  )>;
 }
 
 /* ---------- 轻量接口（运维 / Provider 内部） ---------- */
@@ -160,6 +163,7 @@ export interface CollectionQuery {
   locale?: string;
   page?: number;
   limit?: number;
+  pagination?: 'full' | 'simple';
   category_slug?: string;
   format?: string;
   department?: string;
@@ -187,15 +191,6 @@ export interface ContentQuery {
   page_id?: number;
   content_key: string;
   locale?: string;
-}
-
-export interface ViewQuery {
-  host?: string;
-  path?: string;
-  locale?: string;
-  content_key?: string;
-  forms?: string[];
-  preview_token?: string;
 }
 
 export interface FormSchemaQuery {

@@ -1,0 +1,38 @@
+{
+  "name": "@edp/miniprogram-runtime",
+  "version": "0.1.0",
+  "private": false,
+  "description": "EDP uni-app runtime (MP / H5 / APP): Site API client, router, theme tokens, bootstrap",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huashidingxin/edp-packages.git",
+    "directory": "miniprogram/runtime"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test \"tests/*.test.ts\""
+  },
+  "peerDependencies": {
+    "vue": ">=3.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.9.3"
+  }
+}

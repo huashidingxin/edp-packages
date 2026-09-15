@@ -31,6 +31,10 @@ export const componentStrings = {
     prev: '上一张',
     next: '下一张',
   },
+  WebModelViewer: {
+    label: '3D 模型',
+    loadError: '3D 模型加载失败',
+  },
   WebMarquee: {
     label: '滚动展示',
   },

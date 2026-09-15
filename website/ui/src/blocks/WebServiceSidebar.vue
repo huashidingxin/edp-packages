@@ -87,20 +87,3 @@ const S = componentStrings.WebServiceSidebar
   </div>
 </template>
 
-<style scoped>
-.web-service-rise-enter-active,
-.web-service-rise-leave-active {
-  transition: opacity 0.25s, transform 0.25s;
-}
-.web-service-rise-enter-from,
-.web-service-rise-leave-to {
-  opacity: 0;
-  transform: translateY(8px) scale(0.9);
-}
-@media (prefers-reduced-motion: reduce) {
-  .web-service-rise-enter-active,
-  .web-service-rise-leave-active {
-    transition: none;
-  }
-}
-</style>

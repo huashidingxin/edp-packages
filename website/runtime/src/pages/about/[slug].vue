@@ -26,7 +26,7 @@ const slug = computed(() => String(route.params.slug ?? ''))
 const pageCode = computed(() => `about-${slug.value}`)
 
 const { data: page } = useSitePageData({ code: pageCode })
-const content = computed<Record<string, any>>(() => page.value?.content ?? {})
+const content = computed<Record<string, any>>(() => (page.value?.blocks?.body as Record<string, any>) ?? {})
 
 /* 内容形态兼容：后台存在扁平（title/summary/body/sections）与 intro 包裹
  * （intro:{eyebrow,title,summary,body} + sections/stats/pillars）两种写法，
@@ -173,7 +173,7 @@ onBeforeUnmount(() => {
 })
 
 /* 页面级 banner(page_locales.banner,随 page-data 一次返回);与 articles/gallery 同模式 */
-const banner = computed(() => (page.value as any)?.banner ?? null)
+const banner = computed(() => (page.value?.blocks as any)?.banner ?? null)
 const bannerSlides = computed(() =>
   ((banner.value?.items as any[]) ?? [])
     .map((i) => ({ image: String(i.image ?? ''), alt: i.alt ? String(i.alt) : '' }))

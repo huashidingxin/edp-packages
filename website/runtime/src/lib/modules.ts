@@ -27,6 +27,8 @@ export interface WebsiteModulesOptions {
   cases?: boolean
   /** 招聘模块：/jobs 列表 + /jobs/{id} 详情（职位不走分类，按部门/地点筛选）。 */
   jobs?: boolean
+  /** 团队模块：/team 列表 + /team/{id} 详情（成员为独立模型，不走文章分类）。 */
+  team?: boolean
   about?: boolean
 }
 
@@ -39,6 +41,7 @@ export interface ResolvedWebsiteModules {
   gallerySources: string[]
   cases: boolean
   jobs: boolean
+  team: boolean
   about: boolean
 }
 
@@ -51,6 +54,7 @@ const DEFAULTS: ResolvedWebsiteModules = {
   gallerySources: [],
   cases: true,
   jobs: true,
+  team: true,
   about: true,
 }
 
@@ -89,6 +93,7 @@ export function resolveModulesOptions(input: WebsiteModulesOptions | undefined):
     gallerySources: gallery.sources,
     cases: input.cases ?? DEFAULTS.cases,
     jobs: input.jobs ?? DEFAULTS.jobs,
+    team: input.team ?? DEFAULTS.team,
     about: input.about ?? DEFAULTS.about,
   }
 }

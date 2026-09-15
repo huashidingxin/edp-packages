@@ -5,8 +5,8 @@
  * 接线职责：bootstrap → WebHeader / WebFooter / 主题变量 / 有状态挂件（chat）。
  * 视觉定制：站点用 web-header / web-footer 语义类覆盖，或整体替换本文件。
  */
-import { computed, useSlots, watch } from 'vue'
-import { useAppConfig, useHead, useState, useRuntimeConfig } from 'nuxt/app'
+import { computed, useSlots } from 'vue'
+import { useAppConfig, useHead, useRuntimeConfig } from 'nuxt/app'
 import { tokensToCssVariables, resolveStylesheet, WebChatWidget, WebHeader, WebFooter, WebUserArea, WebServiceSidebar } from '@edp/website-ui'
 // 注意：本 layout 会被复制进 .nuxt 虚拟目录执行 —— 禁止相对路径 import，
 // composables 走 '@edp/website-runtime/composables' 包入口。
@@ -16,11 +16,6 @@ import { applyMenuEnhancements } from '@edp/website-runtime/composables'
 const { data: bootstrap, error: bootstrapError } = useSiteBootstrap()
 const { t } = useT()
 
-// bootstrap 写入共享 state，供 useLocale / useBootstrapSite 等派生
-useState('web:bootstrap:data', () => bootstrap.value)
-watch(bootstrap, (v) => {
-  useState<unknown>('web:bootstrap:data').value = v
-})
 
 const siteInfo = computed(() => (bootstrap.value as any)?.site ?? {})
 const { locale, localeLinks, logicalPath } = useLocale()

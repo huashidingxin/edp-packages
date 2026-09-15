@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SiteClient, SiteClientError } from '../src/api/client.ts';
-import { designPreviewTokenForHost } from '../src/api/preview.ts';
 import { tokensToCssVariables } from '../src/api/theme.ts';
 import type { ApiEnvelope, BootstrapResponse, PageDataResponse, CollectionResponse } from '../src/contracts/index.ts';
 
@@ -18,22 +17,6 @@ function makeFetcher<TEnv>(env: TEnv, calls: Array<{ url: string; query?: Record
   };
   return { fetcher, calls };
 }
-
-test('designPreviewTokenForHost: matches subdomain of preview domain', () => {
-  assert.equal(designPreviewTokenForHost('abc123.edp.hsdxchina.com', 'edp.hsdxchina.com'), 'abc123');
-  assert.equal(designPreviewTokenForHost('edp.hsdxchina.com', 'edp.hsdxchina.com'), null);
-  // Note: lfscmj.edp.hsdxchina.com is itself an Application domain; this function does NOT
-  // have a blacklist, so callers (the Nuxt bootstrap composable) must disable preview-mode
-  // behavior by leaving `previewDomain` blank or by checking the resolved token against the
-  // configured Application domain whitelist before sending it to /api/v1 API.
-  assert.equal(designPreviewTokenForHost('lfscmj.edp.hsdxchina.com', 'edp.hsdxchina.com'), 'lfscmj');
-});
-
-test('designPreviewTokenForHost: returns null when not preview domain', () => {
-  assert.equal(designPreviewTokenForHost('lfscmj.edp.example.cn', 'edp.hsdxchina.com'), null);
-  assert.equal(designPreviewTokenForHost('', 'edp.hsdxchina.com'), null);
-  assert.equal(designPreviewTokenForHost('lfscmj.edp.hsdxchina.com', ''), null);
-});
 
 test('SiteClient.bootstrap: host always on query, locale optional', async () => {
   const calls: Array<{ url: string; query?: Record<string, unknown> }> = [];
@@ -63,11 +46,9 @@ test('SiteClient.pageData: code path + id on query when record', async () => {
   const env: ApiEnvelope<PageDataResponse> = {
     success: true,
     data: {
-      page: { id: 1, code: 'product', slug: null, title: 'P', type: 'detail', locale: 'zh-CN' },
+      page: { id: 1, code: 'product', slug: null, title: 'P', type: 4, locale: 'zh-CN' },
       locale: 'zh-CN',
-      banner: null,
-      content: null,
-      sections: {},
+      blocks: {},
     },
   };
   const fetcher = async <T = unknown>(url: string, options?: Record<string, unknown>): Promise<T> => {
@@ -75,10 +56,11 @@ test('SiteClient.pageData: code path + id on query when record', async () => {
     return env as unknown as T;
   };
   const client = new SiteClient({ apiBase: 'http://localhost:8787', host: 'lfscmj.edp', fetch: fetcher });
-  await client.pageData('product', { id: 42, locale: 'zh-CN', device: 'web' });
+  await client.pageData('product', { id: 42, card_id: 7, locale: 'zh-CN', device: 'web' });
   assert.equal(calls[0]?.url, 'http://localhost:8787/api/v1/site/page-data/product');
   assert.equal(calls[0]?.query?.host, 'lfscmj.edp');
   assert.equal(calls[0]?.query?.id, '42');
+  assert.equal(calls[0]?.query?.card_id, '7');
   assert.equal(calls[0]?.query?.device, 'web');
   assert.equal(calls[0]?.query?.locale, 'zh-CN');
 });

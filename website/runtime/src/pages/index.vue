@@ -2,8 +2,8 @@
 /**
  * 通用首页模板 —— 区块内容驱动、存在才渲染。
  * 站点本地 app/pages/index.vue 存在时本模板不注册（单页覆写做品牌化）。
- * 数据：整页单请求 pageData('home')；hero 走 page.banner（页面级 banner），
- * 推荐产品 / 最新资讯走 sections（collection_list）。首页内容前端自治，
+ * 数据：整页单请求 pageData('home')；hero 走 blocks.banner（页面级 banner），
+ * 推荐产品 / 最新资讯走 具名模型块。首页内容前端自治，
  * 不再消费 content['home-*'] 约定键。
  */
 import { computed } from 'vue'
@@ -23,38 +23,29 @@ useHead({
   title: () => site.value?.name || t('首页'),
 })
 
-const banner = computed(() => page.value?.banner ?? null)
+const banner = computed(() => (page.value?.blocks?.banner as any) ?? null)
 const bannerSlides = computed(() =>
   ((banner.value?.items as any[]) ?? [])
     .map((i) => ({ image: String(i.image ?? ''), alt: i.alt ? String(i.alt) : '' }))
     .filter((s) => !!s.image),
 )
 
-const sectionItems = (name: string) => computed<any[]>(() => ((page.value?.sections?.[name] as any)?.items ?? []))
+const sectionItems = (name: string) => computed<any[]>(() => ((page.value?.blocks?.[name] as any[]) ?? []))
 const featured = sectionItems('featured_products')
 const newsItems = sectionItems('latest_news')
 
-/** 相册数据源区块:后台 section(collection_list → gallery-item)即首页滚动墙;任意 key,存在才渲染。 */
-const gallerySections = computed(() =>
-  Object.entries((page.value?.sections ?? {}) as Record<string, any>)
-    .filter(([, s]) => ((s as any)?.category?.family ?? '') === 'gallery-list' && ((s as any)?.items?.length ?? 0) > 0)
-    .map(([key, s]) => ({
-      key,
-      variant: (key === 'partners' ? 'logo' : 'photo') as 'logo' | 'photo',
-      title: String((s as any)?.category?.values?.title ?? '') || t('合作伙伴'),
-      items: (((s as any)?.items as any[]) ?? [])
-        .map((i) => ({ image: String(i?.values?.image ?? i?.values?.cover ?? ''), alt: String(i?.values?.title ?? '') }))
-        .filter((m) => !!m.image),
-    })),
-)
+/** 公共模板自己选择支持的块与布局，后端只返回模型记录。 */
+const gallerySections = computed(() => [
+  { key: 'partners', variant: 'logo' as const, title: t('合作伙伴'), field: 'logo' },
+  { key: 'gallery', variant: 'photo' as const, title: t('企业相册'), field: 'image' },
+].map((block) => ({
+  ...block,
+  items: ((page.value?.blocks?.[block.key] as any[]) ?? [])
+    .map((record) => ({ image: String(record[block.field] ?? ''), alt: String(record.title ?? '') }))
+    .filter((item) => !!item.image),
+})).filter((block) => block.items.length))
 
-const vals = (item: any): Record<string, any> => item?.values ?? {}
-function extractId(key: string, v: Record<string, any> | null): number | string {
-  const id = v?.id
-  if (id != null && id !== '') return id as number | string
-  const tail = String(key).split(':').pop() ?? key
-  return /^\d+$/.test(tail) ? Number(tail) : tail
-}
+const vals = (item: any): Record<string, any> => item ?? {}
 </script>
 
 <template>
@@ -80,13 +71,13 @@ function extractId(key: string, v: Record<string, any> | null): number | string 
       <WebGrid :cols="3">
         <WebCard
           v-for="item in featured.slice(0, 6)"
-          :key="String(item.key)"
+          :key="String(item.id)"
           kind="product"
           variant="raised"
           :title="vals(item).title"
           :summary="vals(item).summary"
           :image="vals(item).cover"
-          :href="localePath(recordPath('product', extractId(String(item.key), vals(item))))"
+          :href="localePath(recordPath('product', item.id))"
         />
       </WebGrid>
     </WebSection>
@@ -101,19 +92,19 @@ function extractId(key: string, v: Record<string, any> | null): number | string 
       <WebGrid :cols="3">
         <WebCard
           v-for="item in newsItems.slice(0, 3)"
-          :key="String(item.key)"
+          :key="String(item.id)"
           kind="article"
           variant="raised"
           :title="vals(item).title"
           :summary="vals(item).summary"
           :image="vals(item).cover"
           :meta="vals(item).published_at ? String(vals(item).published_at).slice(0, 10) : ''"
-          :href="localePath(recordPath('article', extractId(String(item.key), vals(item))))"
+          :href="localePath(recordPath('article', item.id))"
         />
       </WebGrid>
     </WebSection>
 
-    <!-- 相册数据源滚动墙(合作伙伴等;后台 section 配置驱动,gallery-list 来源自动渲染) -->
+    <!-- 相册数据源滚动墙(合作伙伴等;具名块，前端选择呈现方式) -->
     <WebSection
       v-for="wall in gallerySections"
       :key="wall.key"

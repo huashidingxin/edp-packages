@@ -81,7 +81,12 @@ const total = computed(() => Number(collection.value?.meta?.total ?? items.value
 const gallery = computed(() => {
   const m = recValues.value?.media
   return Array.isArray(m) && m.length
-    ? m.map((g: any) => ({ url: String(g.src ?? g.url ?? g), alt: String(g.alt ?? pageTitle.value ?? '') }))
+    ? m.map((g: any) => ({
+        type: g.type,
+        src: String(g.src ?? g.url ?? g),
+        alt: String(g.alt ?? pageTitle.value ?? ''),
+        poster: g.poster ?? g.thumbnail ?? null,
+      }))
     : []
 })
 
@@ -155,7 +160,7 @@ function makeNavHref(item: WebRecordNavItem): string {
         :title="pageTitle ?? ''"
         :summary="pageSummary"
         :cover="recValues?.cover ?? null"
-        :gallery="gallery"
+        :gallery="(gallery as any)"
         :body-html="recValues?.body ?? null"
         :list-href="localePath('/cases')"
         :previous="record?.navigation?.previous ?? null"

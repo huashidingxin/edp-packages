@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { submitForm, useBootstrapSite, useSiteCategory, useSiteCollection, useSitePageData, useSiteRecord } from '../../composables/useSite.ts'
+import { useSiteImageCategory } from '../../composables/useSite.ts'
 import { useT } from '../../composables/useT.ts'
 import { useLocale } from '../../composables/useLocale.ts'
-import { useSiteNavigation } from '../../lib/site.ts'
 /** 模板：图集栏目页 /gallery/{slug}。 */
 import { computed } from 'vue'
 import { useHead, useRoute } from 'nuxt/app'
@@ -11,11 +10,10 @@ import { WebHero } from '@edp/website-ui'
 const route = useRoute()
 const { t } = useT()
 const { localePath } = useLocale()
-const cfg = useSiteNavigation()
 
 const slug = computed(() => String(route.params.slug ?? ''))
 
-const { data: categoryCtx } = useSiteCategory({ path: `gallery/${slug.value}` })
+const { data: categoryCtx } = useSiteImageCategory(computed(() => `gallery/${slug.value}`))
 const catValues = computed<any>(() => categoryCtx.value?.category?.values ?? null)
 const banner = computed(() => catValues.value?.banner ?? null)
 const bannerSlides = computed(() =>
@@ -24,12 +22,7 @@ const bannerSlides = computed(() =>
     .filter((s) => !!s.image),
 )
 
-const { data: collection } = useSiteCollection({
-  type: 'gallery-item',
-  categorySlug: computed(() => `gallery/${slug.value}`),
-  limit: 100,
-})
-const items = computed(() => collection.value?.items ?? [])
+const items = computed(() => categoryCtx.value?.items ?? [])
 const pageTitle = computed(() => catValues.value?.title ?? slug.value)
 /** 数据源分类(website.modules.gallery.sources):不在相册切换胶囊里列出,页面保留兜底。 */
 const sourceSlugs = computed<string[]>(() => ((route.meta.websiteModules as any)?.gallerySources as string[]) ?? [])
@@ -94,7 +87,7 @@ useHead({
             class="group overflow-hidden rounded-card border border-border bg-card shadow-card web-motion hover:-translate-y-1 hover:shadow-lift"
           >
             <img
-              :src="String(item.values?.image ?? item.values?.cover ?? '')"
+              :src="String(item.values?.image ?? item.values?.logo ?? item.values?.cover ?? '')"
               :alt="String(item.values?.title ?? '')"
               class="aspect-square size-full object-cover transition-transform duration-500 group-hover:scale-105"
               loading="lazy"

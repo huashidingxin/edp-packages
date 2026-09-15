@@ -84,27 +84,3 @@ const duration = computed(() => `${Math.max(8, props.speed)}s`)
   </div>
 </template>
 
-<style scoped>
-.web-marquee__track {
-  animation-name: web-marquee-scroll;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-@keyframes web-marquee-scroll {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-/* 弱动效偏好:停止滚动,降级为可横向滑动的静态条 */
-@media (prefers-reduced-motion: reduce) {
-  .web-marquee__track {
-    animation: none;
-  }
-  .web-marquee {
-    overflow-x: auto;
-  }
-}
-</style>

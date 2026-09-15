@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import type { ClassValue } from 'clsx'
 import { cn } from '../lib/cn.ts'
 import { componentStrings } from '../componentStrings.ts'
+import { mediaSrc, type MediaItem } from '../lib/media.ts'
 import WebRichText from './WebRichText.vue'
 
 export interface WebRecordNavItem {
@@ -18,8 +19,8 @@ const props = withDefaults(
     summary?: string | null
     /** 主图 URL。 */
     cover?: string | null
-    /** 图集（存在则渲染缩略图行，配合 #media 可整体替换）。 */
-    gallery?: Array<{ url: string; alt?: string | null }> | null
+    /** 图集 / 媒体列表（图片 / 视频 / 3D 模型）；存在则渲染缩略图行，配合 #media 可整体替换。 */
+    gallery?: Array<MediaItem | { url: string; alt?: string | null }> | null
     date?: string | null
     meta?: string | null
     /** 富文本正文。 */
@@ -51,7 +52,7 @@ const props = withDefaults(
 
 defineOptions({ inheritAttrs: false })
 
-const activeImage = computed(() => props.cover || props.gallery?.[0]?.url || null)
+const activeImage = computed(() => props.cover || mediaSrc(props.gallery?.[0] as MediaItem) || (props.gallery?.[0] as { url?: string } | undefined)?.url || null)
 const thumbs = computed(() => (props.gallery?.length ? props.gallery : []))
 </script>
 
@@ -75,10 +76,10 @@ const thumbs = computed(() => (props.gallery?.length ? props.gallery : []))
               <div v-if="thumbs.length > 1" class="web-record__thumbs mt-4 grid grid-cols-5 gap-2.5">
                 <div
                   v-for="(g, i) in thumbs.slice(0, 10)"
-                  :key="g.url + i"
+                  :key="mediaSrc(g as MediaItem) + String(i)"
                   class="overflow-hidden rounded-md bg-muted"
                 >
-                  <img :src="g.url" :alt="g.alt ?? ''" class="aspect-square size-full object-cover opacity-90 transition-opacity hover:opacity-100" loading="lazy">
+                  <img :src="mediaSrc(g as MediaItem)" :alt="g.alt ?? ''" class="aspect-square size-full object-cover opacity-90 transition-opacity hover:opacity-100" loading="lazy">
                 </div>
               </div>
             </slot>

@@ -10,7 +10,6 @@ declare module '#app' {
       apiBase: string
       forceHost: string
       applicationCode: string
-      previewDomain: string
       /** '1' 时会话走 MockAuthProvider（契约先行）。 */
       authMock?: string
       chatWidget?: boolean
@@ -28,6 +27,8 @@ declare module '#app' {
 
 declare module 'vue-router' {
   interface RouteMeta {
+    /** Page data to prefetch alongside bootstrap during SSR. */
+    sitePageData?: import('./lib/siteRequests.ts').SitePageDataRoute
     /** 模板路由携带的解析后模块配置（module 注册时写入）。 */
     websiteModules?: import('./lib/modules.ts').ResolvedWebsiteModules
   }

@@ -18,7 +18,6 @@ import type {
   SubmitFormOptions,
   SubmitFormResult,
 } from '../contracts/index.ts';
-import { designPreviewTokenForHost } from './preview.ts';
 import { RemoteAuthProvider, type AuthProvider, type AuthLoginPayload, type AuthRegisterPayload } from './auth.ts';
 
 /** Minimal fetch-like signature accepted by the client (Nuxt ofetch / native fetch). */
@@ -33,8 +32,6 @@ export interface SiteClientOptions {
   host: string;
   /** Stable application code for shared API domains, local debugging, and SSG builds. */
   applicationCode?: string;
-  /** Preview domain root for design preview token resolution. */
-  previewDomain?: string;
   /** Optional fetch implementation. */
   fetch?: FetchLike;
   /** 会话提供者；缺省 RemoteAuthProvider（契约端点），mock 场景注入 MockAuthProvider。 */
@@ -58,7 +55,6 @@ export class SiteClient {
   protected readonly base: string;
   protected readonly host: string;
   protected readonly applicationCode: string;
-  protected readonly previewDomain: string;
   protected readonly fetcher: FetchLike;
   private authProvider?: AuthProvider;
 
@@ -68,7 +64,6 @@ export class SiteClient {
     this.base = options.apiBase.replace(/\/$/, '');
     this.host = options.host;
     this.applicationCode = options.applicationCode ?? '';
-    this.previewDomain = options.previewDomain ?? '';
     this.authProvider = options.auth;
     this.fetcher = options.fetch ??
       (async <T = unknown>(url: string, opts?: Record<string, unknown>): Promise<T> =>
@@ -101,9 +96,6 @@ export class SiteClient {
     return this.auth.me();
   }
 
-  previewToken(): string | null {
-    return designPreviewTokenForHost(this.host, this.previewDomain);
-  }
 
   /** GET /api/v1/site/bootstrap */
   async bootstrap(query: { locale?: string } = {}): Promise<BootstrapResponse> {
@@ -115,10 +107,9 @@ export class SiteClient {
   /** GET /api/v1/site/page-data/{code} — 整页主入口。 */
   async pageData(code: string, query: PageDataQuery = {}): Promise<PageDataResponse> {
     const params: Record<string, string> = { host: this.host };
-    if (query.locale) params.locale = query.locale;
-    if (query.id != null) params.id = String(query.id);
-    if (query.device) params.device = query.device;
-    if (query.preview) params.preview = '1';
+    for (const [name, value] of Object.entries(query)) {
+      if (name !== 'host' && value !== undefined && value !== '') params[name] = String(value);
+    }
     return this.request<PageDataResponse>(
       `${this.base}/api/v1/site/page-data/${encodeURIComponent(code)}`,
       params,
@@ -255,7 +246,6 @@ export interface UseSiteClientConfig {
   apiBase: string;
   host: string;
   applicationCode?: string;
-  previewDomain?: string;
   fetch?: FetchLike;
   auth?: AuthProvider;
 }
@@ -266,7 +256,6 @@ export function createSiteClient(config: UseSiteClientConfig, fetchImpl?: FetchL
     apiBase: config.apiBase,
     host: config.host,
     applicationCode: config.applicationCode,
-    previewDomain: config.previewDomain,
     fetch: config.fetch ?? fetchImpl,
     auth: config.auth,
   });

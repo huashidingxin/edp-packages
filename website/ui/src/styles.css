@@ -293,4 +293,276 @@
     left: 16px;
     top: 16px;
   }
+
+  /* ---------- 组件行为样式（单源真相，勿回迁 SFC scoped） ----------
+   * 构建产物（dist/blocks/*.vue）经独立打包后，SFC <style scoped> 不再随
+   * 站点构建注入页面（keyframe/定位/过渡静默丢失，如跑马灯停转）。
+   * 因此全部组件行为样式收编于此：类名均为 .web-* / .cw-* 前缀，
+   * 与站点覆盖（非 layered）无冲突；站点仍经 L2 部件变量 / L3 语义类定制。 */
+
+  /* WebMarquee —— 无缝横向滚动 */
+  .web-marquee__track {
+    animation-name: web-marquee-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+  }
+  @keyframes web-marquee-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  /* 弱动效偏好:停止滚动,降级为可横向滑动的静态条 */
+  @media (prefers-reduced-motion: reduce) {
+    .web-marquee__track {
+      animation: none;
+    }
+    .web-marquee {
+      overflow-x: auto;
+    }
+  }
+
+  /* WebCarousel —— 箭头定位基准 / 滚动条隐藏 / 卡片宽度 */
+  .web-carousel__stage {
+    position: relative;
+  }
+  .web-carousel__viewport {
+    scrollbar-width: none;
+    cursor: grab;
+  }
+  .web-carousel__viewport:active {
+    cursor: grabbing;
+  }
+  .web-carousel__viewport::-webkit-scrollbar {
+    display: none;
+  }
+  .web-carousel__viewport.is-dragging {
+    scroll-snap-type: none;
+  }
+  .web-carousel__viewport img {
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+  .web-carousel__card {
+    width: min(78%, 360px);
+  }
+  @media (min-width: 640px) {
+    .web-carousel__card {
+      width: calc((100% - 16px) / 2);
+    }
+  }
+  @media (min-width: 1024px) {
+    .web-carousel__card {
+      width: calc((100% - (var(--cw-per) - 1) * 16px) / var(--cw-per));
+    }
+  }
+
+  /* WebHeader —— 移动端抽屉滑入/滑出 */
+  .web-sheet[data-state='open'] {
+    animation: web-header-sheet-in 0.26s var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  }
+  .web-sheet[data-state='closed'] {
+    animation: web-header-sheet-out 0.2s var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  }
+  @keyframes web-header-sheet-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  @keyframes web-header-sheet-out {
+    from { transform: translateX(0); }
+    to { transform: translateX(100%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .web-sheet[data-state='open'],
+    .web-sheet[data-state='closed'] {
+      animation: none;
+    }
+  }
+
+  /* WebServiceSidebar —— 回顶按钮入场过渡 */
+  .web-service-rise-enter-active,
+  .web-service-rise-leave-active {
+    transition: opacity 0.25s, transform 0.25s;
+  }
+  .web-service-rise-enter-from,
+  .web-service-rise-leave-to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.9);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .web-service-rise-enter-active,
+    .web-service-rise-leave-active {
+      transition: none;
+    }
+  }
+
+  /* WebShare —— 头部 / 按钮行 / 气泡入场 / 复制提示 */
+  .web-share__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-foreground);
+  }
+  .web-share__head-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--color-primary);
+  }
+  .web-share__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .web-share__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-card);
+    color: var(--web-share-color, var(--color-muted-foreground));
+    cursor: pointer;
+    transition:
+      background-color 0.25s,
+      color 0.25s,
+      border-color 0.25s,
+      transform 0.2s,
+      box-shadow 0.25s;
+  }
+  .web-share__btn:hover {
+    background: var(--web-share-color, var(--color-muted-foreground));
+    border-color: var(--web-share-color, var(--color-muted-foreground));
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgb(0 0 0 / 0.12);
+  }
+  .web-share__btn:active {
+    transform: translateY(0) scale(0.96);
+  }
+  .web-share__btn:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  .web-share__pop[data-state='open'] {
+    animation: web-share-pop-in 0.18s var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  }
+  @keyframes web-share-pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .web-share__pop[data-state='open'] {
+      animation: none;
+    }
+  }
+  .web-share__copied {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-primary);
+  }
+  .web-share-fade-enter-active,
+  .web-share-fade-leave-active {
+    transition: opacity 0.25s;
+  }
+  .web-share-fade-enter-from,
+  .web-share-fade-leave-to {
+    opacity: 0;
+  }
+
+  /* WebChatWidget —— 输入中圆点 / 消息滚动条 / 消息 markdown */
+  .cw-dot {
+    animation: cw-dot-bounce 1s infinite ease-in-out;
+  }
+  @keyframes cw-dot-bounce {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+  .cw-messages::-webkit-scrollbar {
+    width: 6px;
+  }
+  .cw-messages::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .cw-messages::-webkit-scrollbar-thumb {
+    background: var(--color-border, #e2e8f0);
+    border-radius: 3px;
+  }
+  .cw-md p {
+    margin: 6px 0;
+  }
+  .cw-md p:first-child {
+    margin-top: 0;
+  }
+  .cw-md p:last-child {
+    margin-bottom: 0;
+  }
+  .cw-md h1,
+  .cw-md h2,
+  .cw-md h3,
+  .cw-md h4 {
+    font-size: 1em;
+    font-weight: 700;
+    margin: 8px 0 4px;
+  }
+  .cw-md ul,
+  .cw-md ol {
+    margin: 6px 0;
+    padding-left: 20px;
+    list-style: disc;
+  }
+  .cw-md ol {
+    list-style: decimal;
+  }
+  .cw-md pre {
+    margin: 8px 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--color-muted, #f1f5f9);
+    overflow-x: auto;
+    font-size: 12px;
+  }
+  .cw-md code {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--color-muted, #f1f5f9);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9em;
+  }
+  .cw-md pre code {
+    padding: 0;
+    background: none;
+  }
+  .cw-md blockquote {
+    margin: 8px 0;
+    padding-left: 10px;
+    border-left: 3px solid var(--color-border, #e2e8f0);
+    color: var(--color-muted-foreground);
+  }
+  .cw-md a {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
+  .cw-md img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin: 8px 0;
+  }
 }

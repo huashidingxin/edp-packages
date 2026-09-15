@@ -1,6 +1,7 @@
 import type { LocaleCode, MenuItem, MenuItem as _MI, MenuTree, SiteInfo, LocaleInfo, SiteBranding } from '@edp/website-ui/contracts'
 import { computed } from 'vue'
 import { useRoute, useState } from 'nuxt/app'
+import { requestLocaleFromPath } from '../lib/siteRequests.ts'
 
 const LOCALE_PREFIX_RE = /^\/[a-z]{2,3}(-[a-z0-9]{2,8})?(\/|$)/i
 
@@ -29,13 +30,13 @@ export function useLocaleLight() {
       const found = findLocaleByPrefix(segment, locales.value)
       if (found) return String(found.code)
     }
-    return defaultLocale.value
+    return requestLocaleFromPath(path) ?? defaultLocale.value
   }
 
   const stripPrefix = (path: string): string => {
     if (!LOCALE_PREFIX_RE.test(path)) return path
     const segment = path.split('/')[1] ?? ''
-    if (segment && locales.value.some((l) => localePrefixOf(String(l.code)) === segment.toLowerCase())) {
+    if (segment && (requestLocaleFromPath(path) || locales.value.some((l) => localePrefixOf(String(l.code)) === segment.toLowerCase()))) {
       const rest = path.split('/').slice(2).join('/')
       return rest ? `/${rest}` : '/'
     }
@@ -48,10 +49,11 @@ export function useLocaleLight() {
     return `/${prefix}${logicalPath === '/' || !logicalPath ? '' : logicalPath}`
   }
 
+  const requestLocale = computed(() => requestLocaleFromPath(route.path))
   const locale = computed(() => localeFromPath(route.path))
   const logicalPath = computed(() => stripPrefix(route.path))
 
-  return { locale, defaultLocale, locales, localeFromPath, stripPrefix, prefixedPath, logicalPath }
+  return { locale, requestLocale, defaultLocale, locales, localeFromPath, stripPrefix, prefixedPath, logicalPath }
 }
 
 interface BootstrapData {

@@ -5,7 +5,7 @@
  * - SSR SiteClient 注入 + bootstrap 预取 + 会话 provider 配置
  * - composables / lib 自动 imports
  * - 公共 layout / app.vue / router.options 兜底（站点本地同名文件优先）
- * - **标准页面模板**（home/products/articles/gallery/cases/about/catch-all），
+ * - **标准页面模板**（home/products/articles/gallery/cases/jobs/team/about/catch-all），
  *   经 `website.modules` 按需注册：关掉的模块路由不进构建产物（真·按需打包）；
  *   站点本地同名页面存在时自动跳过对应模板（单页覆写粒度）
  * - 站点挂点组件目录（components/，优先级低于站点，可同名覆盖，如 SiteRecordMedia）
@@ -15,7 +15,7 @@
  *
  * 站点 nuxt.config 最小用法：
  *   modules: ['@edp/website-runtime']
- *   runtimeConfig: { apiBase, public: { forceHost, previewDomain, apiBase } }
+ *   runtimeConfig: { apiBase, public: { forceHost, apiBase } }
  */
 import { defineNuxtModule, addPlugin, addImportsDir, addLayout, addTypeTemplate, addComponentsDir, useLogger } from '@nuxt/kit'
 import { defu } from 'defu'
@@ -55,8 +55,9 @@ const TEMPLATE_PAGES: Array<{
   /** 解析后模块键；null = 恒注册（catch-all）。 */
   gate: keyof ResolvedWebsiteModules | null
   local: string
+  dataCode?: string
 }> = [
-  { path: '/', name: 'website-index', file: resolve(moduleDir, 'pages/index.vue'), gate: 'home', local: 'index.vue' },
+  { path: '/', name: 'website-index', file: resolve(moduleDir, 'pages/index.vue'), gate: 'home', local: 'index.vue', dataCode: 'home' },
   { path: '/products', name: 'website-products', file: resolve(moduleDir, 'pages/products/index.vue'), gate: 'productsListing', local: 'products/index.vue' },
   { path: '/products/:slug()', name: 'website-products-slug', file: resolve(moduleDir, 'pages/products/[slug].vue'), gate: 'productsDetail', local: 'products/[slug].vue' },
   { path: '/articles', name: 'website-articles', file: resolve(moduleDir, 'pages/articles/index.vue'), gate: 'articles', local: 'articles/index.vue' },
@@ -67,7 +68,9 @@ const TEMPLATE_PAGES: Array<{
   { path: '/cases/:slug()', name: 'website-cases-slug', file: resolve(moduleDir, 'pages/cases/[slug].vue'), gate: 'cases', local: 'cases/[slug].vue' },
   { path: '/jobs', name: 'website-jobs', file: resolve(moduleDir, 'pages/jobs/index.vue'), gate: 'jobs', local: 'jobs/index.vue' },
   { path: '/jobs/:slug()', name: 'website-jobs-slug', file: resolve(moduleDir, 'pages/jobs/[slug].vue'), gate: 'jobs', local: 'jobs/[slug].vue' },
-  { path: '/about/:slug()', name: 'website-about-slug', file: resolve(moduleDir, 'pages/about/[slug].vue'), gate: 'about', local: 'about/[slug].vue' },
+  { path: '/team', name: 'website-team', file: resolve(moduleDir, 'pages/team/index.vue'), gate: 'team', local: 'team/index.vue' },
+  { path: '/team/:id()', name: 'website-team-id', file: resolve(moduleDir, 'pages/team/[id].vue'), gate: 'team', local: 'team/[id].vue' },
+  { path: '/about/:slug()', name: 'website-about-slug', file: resolve(moduleDir, 'pages/about/[slug].vue'), gate: 'about', local: 'about/[slug].vue', dataCode: 'about-:slug' },
   { path: '/:pathMatch(.*)*', name: 'website-catch-all', file: resolve(moduleDir, 'pages/[...slug].vue'), gate: null, local: '[...slug].vue' },
 ]
 
@@ -203,7 +206,7 @@ export default defineNuxtModule({
           if (hasLocalPage(pagesDir, tpl.local)) continue
           const exists = pages.some((p) => (p.path ?? '') === tpl.path)
           if (exists) continue
-          pages.push({ path: tpl.path, name: tpl.name, file: tpl.file, meta: { websiteModules: modules } })
+          pages.push({ path: tpl.path, name: tpl.name, file: tpl.file, meta: { websiteModules: modules, ...(tpl.dataCode ? { sitePageData: { code: tpl.dataCode } } : {}) } })
         }
       })
     }

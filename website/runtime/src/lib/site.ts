@@ -79,11 +79,12 @@ export function useSiteNavigation(): ComputedRef<SiteNavigationConfig> {
 }
 
 /** 详情页路径：record_navigation 只返回 `{title,id,slug}`，path 由前端按 kind 拼。 */
-export function recordPath(kind: 'product' | 'article' | 'gallery' | 'case' | 'job', id: number | string): string {
+export function recordPath(kind: 'product' | 'article' | 'gallery' | 'case' | 'job' | 'team', id: number | string): string {
   if (kind === 'product') return `/products/${id}`
   if (kind === 'gallery') return `/gallery/${id}`
   if (kind === 'case') return `/cases/${id}`
   if (kind === 'job') return `/jobs/${id}`
+  if (kind === 'team') return `/team/${id}`
   return `/articles/${id}`
 }
 

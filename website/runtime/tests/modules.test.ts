@@ -7,7 +7,7 @@ test('resolveModulesOptions: undefined -> all defaults on', () => {
   assert.equal(r.home, true);
   assert.equal(r.productsListing, 'sidebar');
   assert.equal(r.productsDetail, true);
-  assert.equal(r.articles && r.gallery && r.cases && r.jobs && r.about, true);
+  assert.equal(r.articles && r.gallery && r.cases && r.jobs && r.team && r.about, true);
 });
 
 test('resolveModulesOptions: module off -> listing null & detail false', () => {
@@ -34,6 +34,12 @@ test('resolveModulesOptions: jobs off -> false, others keep defaults', () => {
   assert.equal(r.jobs, false);
   assert.equal(r.articles, true);
   assert.equal(r.productsListing, 'sidebar');
+});
+
+test('resolveModulesOptions: team defaults on, off stays off', () => {
+  assert.equal(resolveModulesOptions(undefined).team, true);
+  assert.equal(resolveModulesOptions({ team: false }).team, false);
+  assert.equal(resolveModulesOptions({ team: true }).team, true);
 });
 
 test('resolveModulesOptions: gallery sources option', () => {

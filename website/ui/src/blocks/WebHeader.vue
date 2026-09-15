@@ -341,26 +341,3 @@ const activeLocale = computed(
   </header>
 </template>
 
-<style scoped>
-/* 移动端抽屉：右侧滑入/滑出（respect prefers-reduced-motion） */
-.web-sheet[data-state='open'] {
-  animation: web-header-sheet-in 0.26s var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1));
-}
-.web-sheet[data-state='closed'] {
-  animation: web-header-sheet-out 0.2s var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1));
-}
-@keyframes web-header-sheet-in {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
-@keyframes web-header-sheet-out {
-  from { transform: translateX(0); }
-  to { transform: translateX(100%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .web-sheet[data-state='open'],
-  .web-sheet[data-state='closed'] {
-    animation: none;
-  }
-}
-</style>

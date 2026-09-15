@@ -42,10 +42,6 @@
       "types": "./dist/api/navigation.d.ts",
       "import": "./dist/api/navigation.js"
     },
-    "./preview": {
-      "types": "./dist/api/preview.d.ts",
-      "import": "./dist/api/preview.js"
-    },
     "./contracts": {
       "types": "./dist/contracts/index.d.ts",
       "import": "./dist/contracts/index.js"
@@ -66,6 +62,7 @@
     "typecheck": "vue-tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@google/model-viewer": "^3.5.0",
     "@iconify-json/lucide": "^1.2.127",
     "@iconify-json/simple-icons": "^1.2.94",
     "@iconify/vue": "^5.0.1",
