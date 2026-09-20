@@ -35,16 +35,16 @@ const intro = computed<Record<string, any>>(() => {
   const i = content.value.intro
   return i && typeof i === 'object' ? (i as Record<string, any>) : {}
 })
-const displayEyebrow = computed<string | null>(() => intro.value.eyebrow ?? content.value.eyebrow ?? null)
+const displayEyebrow = computed<string | null>(() => intro.value.subtitle ?? intro.value.eyebrow ?? content.value.subtitle ?? content.value.eyebrow ?? null)
 const displayImage = computed<string | null>(() => content.value.image ?? intro.value.image ?? null)
 /* 标题：intro.title → content.title → page.page.title（后台 page_locales） */
 const heroTitle = computed(() =>
   intro.value.title || content.value.title || page.value?.page?.title || t('关于我们'))
-const displaySummary = computed(() => intro.value.summary ?? content.value.summary ?? '')
-const displayBody = computed<string | null>(() => intro.value.body ?? content.value.body ?? null)
+const displaySummary = computed(() => intro.value.content ?? intro.value.summary ?? content.value.content ?? content.value.summary ?? '')
+const displayBody = computed<string | null>(() => intro.value.content ?? intro.value.body ?? content.value.content ?? content.value.body ?? null)
 /* 特性卡：sections / pillars（摘要缺失时由 body 降级，见 normalizeAboutFeatures） */
 const displayFeatures = computed<any[]>(() =>
-  content.value.sections ?? content.value.pillars ?? content.value.features ?? [])
+  content.value.sections ?? content.value.pillars ?? content.value.features ?? content.value.values ?? content.value.steps ?? [])
 const displayStats = computed<any[]>(() => content.value.stats ?? [])
 /* 联系形态:数据驱动 —— 联系页（contact_path 指向的 slug）或页面显式配置 content.contact。
  * branding.contact 为站点级兑底（顶栏/页脚同源），页面级 content.contact 可覆盖；

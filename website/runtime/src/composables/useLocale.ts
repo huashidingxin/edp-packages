@@ -1,14 +1,7 @@
 import type { LocaleCode } from '@edp/website-ui/contracts'
 import { computed } from 'vue'
 import { useRoute, useState } from 'nuxt/app'
-
-const LOCALE_PREFIX_RE = /^\/[a-z]{2,3}(-[a-z0-9]{2,8})?(\/|$)/i
-
-const localePrefixOf = (code: string): string => {
-  const normalized = code.replace('_', '-')
-  const lang = normalized.split('-')[0]?.toLowerCase() || normalized.toLowerCase()
-  return lang
-}
+import { localeCodeFromPath, localizePath, prefixLocalePath, stripLocalePrefix } from '../lib/locale.ts'
 
 export interface LocaleLink {
   locale: LocaleCode
@@ -28,38 +21,23 @@ export interface SiteLocaleInfo {
  * - 默认语言无 URL 前缀；
  * - 其他启用语言使用 /{lang} 短码前缀（如 /en/products）；
  * - 所有 /api/v1 接口请求显式带 ?locale= 当前语言，并且路径剥离前缀后传入。
- * - localePath(path) 将逻辑路径转回当前语言下的真实 URL（默认语言无前缀）。
+ * - localePath(path) 将逻辑路径转回当前语言下的真实 URL（默认语言无前缀）；
+ *   该函数幂等：后端下发的 `href` 已是本地化 URL（如 /en/about），再次调用不会叠加成 /en/en/about。
  */
 export function useLocale() {
   const route = useRoute()
   const bootstrap = useState<BootstrapSnapshot | null>('web:bootstrap:data', () => null)
   const defaultLocale = computed<string>(() => bootstrap.value?.site?.default_locale ?? 'zh-CN')
   const locales = computed<SiteLocaleInfo[]>(() => bootstrap.value?.site?.locales ?? [])
+  const localeCodes = computed<string[]>(() => locales.value.map((l) => String(l.code)))
 
-  const localeFromPath = (path: string): string => {
-    const segment = path.split('/')[1] ?? ''
-    if (LOCALE_PREFIX_RE.test(path) && segment) {
-      const found = locales.value.find((l) => localePrefixOf(String(l.code)) === segment.toLowerCase())
-      if (found) return String(found.code)
-    }
-    return defaultLocale.value
-  }
+  const localeFromPath = (path: string): string =>
+    localeCodeFromPath(path, localeCodes.value) ?? defaultLocale.value
 
-  const stripPrefix = (path: string): string => {
-    if (!LOCALE_PREFIX_RE.test(path)) return path
-    const segment = path.split('/')[1] ?? ''
-    if (segment && locales.value.some((l) => localePrefixOf(String(l.code)) === segment.toLowerCase())) {
-      const rest = path.split('/').slice(2).join('/')
-      return rest ? `/${rest}` : '/'
-    }
-    return path
-  }
+  const stripPrefix = (path: string): string => stripLocalePrefix(path, localeCodes.value)
 
-  const prefixedPath = (locale: string, logicalPath: string): string => {
-    if (locale === defaultLocale.value) return logicalPath || '/'
-    const prefix = localePrefixOf(locale)
-    return `/${prefix}${logicalPath === '/' || !logicalPath ? '' : logicalPath}`
-  }
+  const prefixedPath = (locale: string, logicalPath: string): string =>
+    prefixLocalePath(logicalPath, locale, defaultLocale.value)
 
   const locale = computed(() => localeFromPath(route.path))
   const logicalPath = computed(() => stripPrefix(route.path))
@@ -73,8 +51,12 @@ export function useLocale() {
     })),
   )
 
-  /** 逻辑路径 -> 当前语言下的真实 URL（默认语言无前缀）。 */
-  const localePath = (path: string): string => prefixedPath(locale.value, path || '/')
+  /**
+   * 逻辑路径 -> 当前语言下的真实 URL（默认语言无前缀）。
+   * 对已经带语言前缀的路径（后端本地化过的菜单 href）幂等，不会产生 `/en/en/...`。
+   */
+  const localePath = (path: string): string =>
+    localizePath(path || '/', locale.value, defaultLocale.value, localeCodes.value)
 
   return { locale, defaultLocale, locales, localeFromPath, stripPrefix, prefixedPath, logicalPath, localeLinks, localePath }
 }

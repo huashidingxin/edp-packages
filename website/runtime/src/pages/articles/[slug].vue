@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { submitForm, useBootstrapSite, useSiteCategory, useSiteCollection, useSitePageData, useSiteRecord } from '../../composables/useSite.ts'
+import { submitForm, useBootstrapMenus, useBootstrapSite, useSiteCategory, useSiteCollection, useSitePageData, useSiteRecord } from '../../composables/useSite.ts'
 import { useT } from '../../composables/useT.ts'
 import { useLocale } from '../../composables/useLocale.ts'
 import { recordPath, useSiteNavigation } from '../../lib/site.ts'
@@ -13,6 +13,14 @@ const route = useRoute()
 const { t } = useT()
 const { localePath } = useLocale()
 const cfg = useSiteNavigation()
+const site = useBootstrapSite()
+const menus = useBootstrapMenus()
+
+const siteName = computed(() => site.value?.name || '')
+const contact = computed<Record<string, any>>(
+  () => ((site.value?.branding as any)?.contact ?? {}) as Record<string, any>,
+)
+const phone = computed(() => String(contact.value.phone ?? contact.value.mobile ?? ''))
 
 const slug = computed(() => String(route.params.slug ?? ''))
 const isDetail = computed(() => /^\d+$/.test(slug.value))
@@ -53,6 +61,39 @@ const items = computed(() => collection.value?.items ?? [])
 /** 列表入场：进入视口才播放（首屏直出，后续卡片按 index 错峰上浮）。 */
 const listRef = ref<HTMLElement | null>(null)
 useWebReveal(() => listRef.value, { deps: [items] })
+
+/** 列表页右侧栏：精选推荐阅读（取前 5 篇） */
+const recommendedItems = computed(() => items.value.slice(0, 5))
+
+/** 列表页右侧栏：了解企业 / 快捷通道 */
+const quickLinks = computed(() => {
+  const links: Array<{ label: string; href: string }> = []
+  const allMenuItems = [...(menus.value?.header ?? []), ...(menus.value?.footer ?? [])]
+
+  const aboutItem = allMenuItems.find((m: any) => String(m.href ?? '').startsWith('/about'))
+  links.push({
+    label: aboutItem?.title || t('企业简介'),
+    href: String(aboutItem?.href ?? '/about'),
+  })
+
+  const prodItem = allMenuItems.find((m: any) =>
+    String(m.href ?? '').startsWith('/products') || String(m.href ?? '').startsWith('/cases'),
+  )
+  if (prodItem) {
+    links.push({
+      label: prodItem.title,
+      href: String(prodItem.href),
+    })
+  }
+
+  const contactItem = allMenuItems.find((m: any) => String(m.href ?? '').includes('contact'))
+  links.push({
+    label: contactItem?.title || t('联系我们'),
+    href: String(contactItem?.href ?? cfg.value.contactPath ?? '/contact'),
+  })
+
+  return links
+})
 
 const recValues = computed<any>(() => record.value?.record?.values ?? null)
 /** 详情页:文章所属分类的上下文随 record 接口返回,其 sidebar 树已由后端标记 active。 */
@@ -101,21 +142,19 @@ function extractId(key: string, v: Record<string, any> | null): number | string 
   return /^\d+$/.test(tail) ? Number(tail) : tail
 }
 
-/** 列表日期块：从 YYYY-MM-DD 前缀拆出"日"与"年/月"，格式不符返回 null（不渲染日期列）。 */
-function dateParts(v: unknown): { day: string; ym: string } | null {
-  if (!v) return null
-  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (!m) return null
-  const [, y, mo, d] = m
-  if (!y || !mo || !d) return null
-  return { day: String(Number(d)), ym: `${y}/${mo}` }
+/** 完整格式化日期 YYYY-MM-DD */
+function formatDate(v: unknown): string | null {
+  const m = String(v ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null
 }
 
-/** 分类胶囊按钮:激活=主题色实心;未激活=浅灰底(白区块上白片悬浮感强,给底色更稳)。 */
-const pillClass = (active: boolean) =>
-  active
-    ? 'inline-flex h-9 items-center rounded-full border border-primary bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-all duration-200'
-    : 'inline-flex h-9 items-center rounded-full border border-transparent bg-muted px-4 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-primary/10 hover:text-primary'
+const detailCrumbs = computed(() => [
+  { label: t('首页'), href: '/' },
+  { label: t('新闻资讯'), href: `/articles/${defaultSlug.value}` },
+  ...(detailCat.value ? [{ label: detailCat.value.label, href: `/articles/${detailCat.value.slug}` }] : []),
+  { label: pageTitle.value ?? '' },
+])
+
 </script>
 
 <template>
@@ -141,99 +180,225 @@ const pillClass = (active: boolean) =>
           <WebBreadcrumbs :items="crumbs" />
         </div>
       </div>
-      <!-- 列表区:分类入口与文章列表同一区块 -->
-      <div class="bg-background pb-12 pt-10 sm:pb-16 sm:pt-14">
-        <!-- 单栏直排:卡片带内边距、封面内嵌,卡内三栏 = 封面 | 内容 | 日期块 -->
+      <!-- 列表区:左侧新闻单列 + 右侧侧边栏(分类+推荐+快捷通道) -->
+      <div class="bg-background pb-14 pt-10 sm:pb-20 sm:pt-12">
         <div class="mx-auto max-w-site px-4 sm:px-6">
-          <nav v-if="categories.length > 1" class="mb-8 flex flex-wrap items-center gap-2 sm:mb-10" :aria-label="t('分类切换')">
-            <a
-              v-for="cat in categories"
-              :key="cat.slug"
-              :href="localePath(`/articles/${cat.slug}`)"
-              :aria-current="cat.slug === slug ? 'page' : undefined"
-              :class="pillClass(cat.slug === slug)"
-            >{{ cat.label }}</a>
-          </nav>
-          <div v-if="items.length" ref="listRef" class="flex flex-col gap-5">
-            <a
-              v-for="(item, i) in items"
-              :key="String(item.key)"
-              :href="localePath(recordPath('article', extractId(String(item.key), vals(item))))"
-              data-web-reveal
-              :data-web-reveal-delay="`${Math.min(i * 70, 350)}ms`"
-              class="group relative flex items-center gap-4 overflow-hidden rounded-card border border-border/80 bg-card p-5 shadow-card web-motion hover:border-primary/40 sm:gap-6 sm:p-6"
-            >
-              <!-- 激活氛围:主色渐变底自左淡入(参考图淡红底) + 左侧主题条自上展开 -->
-              <span
-                class="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/10 via-primary/[0.04] to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-                aria-hidden="true"
-              />
-              <span
-                class="pointer-events-none absolute left-0 top-0 h-full w-1 origin-top scale-y-0 rounded-r-full bg-gradient-to-b from-primary to-primary/60 transition-transform duration-500 group-hover:scale-y-100"
-                aria-hidden="true"
-              />
-              <!-- ① 封面:内嵌在卡片留白内,不贴卡边 -->
-              <div class="relative aspect-[16/10] w-32 shrink-0 overflow-hidden rounded-lg bg-muted sm:w-48 md:w-64">
-                <img
-                  v-if="vals(item).cover"
-                  :src="String(vals(item).cover)"
-                  :alt="String(vals(item).title ?? '')"
-                  class="size-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
+          <!-- 经典两栏布局:左侧新闻单列(主栏自动撑满)+右侧侧边栏,两端完全占满版心宽度 -->
+          <div class="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-10">
+            <!-- 左主栏:新闻列表(自动撑满可用宽度) -->
+            <main class="min-w-0 flex-1">
+              <div v-if="items.length" ref="listRef" class="flex flex-col gap-4 sm:gap-5">
+                <a
+                  v-for="(item, i) in items"
+                  :key="String(item.key)"
+                  :href="localePath(recordPath('article', extractId(String(item.key), vals(item))))"
+                  data-web-reveal
+                  :data-web-reveal-delay="`${Math.min(i * 60, 300)}ms`"
+                  class="group relative flex flex-col sm:flex-row items-stretch overflow-hidden rounded-2xl border border-border/80 bg-card p-3.5 sm:p-4 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md hover:shadow-primary/[0.06]"
                 >
-                <div v-else class="grid size-full place-items-center bg-gradient-to-br from-muted to-accent">
-                  <svg
-                    class="size-8 text-muted-foreground/40"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+                  <!-- 激活氛围:主色微光泽 -->
+                  <span
+                    class="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/[0.04] via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                     aria-hidden="true"
-                  >
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                    <circle cx="8.5" cy="8.5" r="1.5" />
-                    <path d="m21 15-5-5L5 21" />
+                  />
+                  <!-- 左侧主题色指示条 -->
+                  <span
+                    class="pointer-events-none absolute left-0 top-0 h-full w-1 origin-top scale-y-0 rounded-r-full bg-gradient-to-b from-primary to-primary/60 transition-transform duration-300 group-hover:scale-y-100"
+                    aria-hidden="true"
+                  />
+
+                  <!-- ① 缩略图:精确定位 220×120 (移动端自适应, sm及以上固定 220×120) -->
+                  <div class="relative h-44 w-full shrink-0 overflow-hidden rounded-xl bg-muted ring-1 ring-border/30 sm:h-[120px] sm:w-[220px]">
+                    <img
+                      v-if="vals(item).cover"
+                      :src="String(vals(item).cover)"
+                      :alt="String(vals(item).title ?? '')"
+                      class="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                    >
+                    <!-- 无图高级微渐变徽章 -->
+                    <div v-else class="relative flex size-full items-center justify-center overflow-hidden bg-gradient-to-br from-primary/[0.08] via-accent/30 to-muted/80">
+                      <span class="pointer-events-none absolute -right-3 -top-3 size-16 rounded-full bg-primary/10 blur-lg" aria-hidden="true" />
+                      <div class="relative grid size-10 place-items-center rounded-xl bg-card/90 shadow-xs ring-1 ring-black/5 dark:ring-white/10 transition-transform duration-500 group-hover:scale-110">
+                        <svg
+                          class="size-5 text-primary/75 transition-colors duration-300 group-hover:text-primary"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.75"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
+                          <path d="M18 14h-8" />
+                          <path d="M15 18h-5" />
+                          <path d="M10 6h8v4h-8V6Z" />
+                        </svg>
+                      </div>
+                    </div>
+
+                    <!-- 悬浮遮罩 -->
+                    <span class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" aria-hidden="true" />
+                  </div>
+
+                  <!-- ② 右侧文字区:标题 + 2 行摘要 + 底部日期与详情 -->
+                  <div class="mt-3 flex min-w-0 flex-1 flex-col justify-between sm:mt-0 sm:pl-4">
+                    <div>
+                      <h3 class="web-clamp-1 sm:web-clamp-2 font-display text-base font-bold leading-snug tracking-tight text-foreground transition-colors duration-200 group-hover:text-primary sm:text-lg">
+                        {{ vals(item).title }}
+                      </h3>
+                      <p v-if="vals(item).summary" class="web-clamp-2 mt-1.5 text-xs leading-relaxed text-muted-foreground transition-colors duration-200 group-hover:text-foreground/80 sm:text-sm">
+                        {{ vals(item).summary }}
+                      </p>
+                    </div>
+
+                    <!-- 底部元数据:日期 + 查看详情 -->
+                    <div class="mt-3 flex items-center justify-between border-t border-border/50 pt-2 text-xs text-muted-foreground">
+                      <span v-if="formatDate(vals(item).published_at)" class="web-num flex items-center gap-1.5 font-medium transition-colors duration-200 group-hover:text-foreground/75">
+                        <svg class="size-3.5 text-muted-foreground/70 transition-colors duration-200 group-hover:text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+                          <line x1="16" x2="16" y1="2" y2="6"/>
+                          <line x1="8" x2="8" y1="2" y2="6"/>
+                          <line x1="3" x2="21" y1="10" y2="10"/>
+                        </svg>
+                        {{ formatDate(vals(item).published_at) }}
+                      </span>
+                      <span v-else />
+
+                      <span class="inline-flex items-center gap-1 text-xs font-semibold text-primary transition-all duration-200 group-hover:translate-x-0.5">
+                        {{ t('查看详情') }}
+                        <svg class="size-3.5 transition-transform duration-200 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M5 12h14" />
+                          <path d="m12 5 7 7-7 7" />
+                        </svg>
+                      </span>
+                    </div>
+                  </div>
+                </a>
+              </div>
+
+              <!-- 空状态 -->
+              <div v-else class="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border/80 bg-card/60 p-14 text-center sm:p-20">
+                <div class="relative grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary shadow-xs">
+                  <svg class="size-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+                    <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+                    <path d="M10 13H8"/>
+                    <path d="M16 17H8"/>
+                    <path d="M16 13h-2"/>
                   </svg>
                 </div>
-                <!-- 移动端日期角标:sm以下隐藏右侧日期列,改用封面右上角小角标 -->
-                <span
-                  v-if="dateParts(vals(item).published_at)"
-                  class="absolute right-2 top-2 flex flex-col items-center rounded-md bg-card/90 px-2 py-1 text-center shadow-sm backdrop-blur-sm sm:hidden"
-                >
-                  <span class="web-num text-sm font-bold leading-none text-primary">{{ dateParts(vals(item).published_at)?.day }}</span>
-                  <span class="web-num mt-0.5 text-[9px] leading-none text-muted-foreground">{{ dateParts(vals(item).published_at)?.ym }}</span>
-                </span>
-                <!-- 悬浮遮罩:封面底部渐变,增加"可点"暗示 -->
-                <span class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" aria-hidden="true" />
+                <p class="text-sm font-medium text-muted-foreground">{{ t('该栏目暂无内容，敬请期待。') }}</p>
               </div>
-              <!-- ② 内容:标题 + 摘要;激活时标题转主色,卡片整体淡主色背景衬托 -->
-              <div class="flex min-w-0 flex-1 flex-col">
-                <h3 class="web-clamp-2 font-display font-bold leading-snug text-foreground transition-colors duration-300 group-hover:text-primary sm:text-lg">{{ vals(item).title }}</h3>
-                <p v-if="vals(item).summary" class="web-clamp-2 mt-2 text-sm leading-relaxed text-muted-foreground">{{ vals(item).summary }}</p>
+            </main>
+
+            <!-- 右侧边栏:资讯分类 + 推荐阅读 + 了解企业/快捷通道 (把页面右侧饱满地撑起来) -->
+            <aside class="flex w-full shrink-0 flex-col gap-5 lg:sticky lg:top-20 lg:w-80 xl:w-84 2xl:w-96">
+              <!-- 资讯分类导航(若有多个分类则展示) -->
+              <div v-if="categories.length > 1" class="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
+                <h4 class="flex items-center gap-2 text-sm font-bold text-foreground">
+                  <span class="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+                  {{ t('分类') }}
+                </h4>
+                <nav class="mt-3.5 flex flex-col gap-1.5" :aria-label="t('分类')">
+                  <a
+                    v-for="cat in categories"
+                    :key="cat.slug"
+                    :href="localePath(`/articles/${cat.slug}`)"
+                    :aria-current="cat.slug === slug ? 'page' : undefined"
+                    :class="[
+                      'group flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm transition-all duration-200',
+                      cat.slug === slug
+                        ? 'bg-primary/10 text-primary font-semibold shadow-2xs ring-1 ring-primary/20'
+                        : 'font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground hover:translate-x-0.5',
+                    ]"
+                  >
+                    <span class="flex items-center gap-2">
+                      <span
+                        class="size-1.5 rounded-full transition-all duration-200"
+                        :class="cat.slug === slug ? 'bg-primary scale-125' : 'bg-transparent group-hover:bg-muted-foreground/40'"
+                        aria-hidden="true"
+                      />
+                      {{ cat.label }}
+                    </span>
+                    <svg
+                      class="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5"
+                      :class="cat.slug === slug ? 'text-primary' : 'opacity-0 group-hover:opacity-100 text-muted-foreground/60'"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="m9 18 6-6-6-6" />
+                    </svg>
+                  </a>
+                </nav>
               </div>
-              <!-- ③ 日期块:大字"日" + 年/月(参考"大数字 + 下方年月"形式,主题化:display 大数字、悬浮转主色) -->
-              <div
-                v-if="dateParts(vals(item).published_at)"
-                class="hidden flex-col items-center justify-center self-stretch rounded-lg bg-primary/[0.04] px-3 py-2 text-center sm:flex sm:w-16"
-              >
-                <span class="web-num font-display text-3xl font-bold leading-none tracking-tight text-foreground transition-[color,transform] duration-300 group-hover:scale-110 group-hover:text-primary sm:text-4xl">{{ dateParts(vals(item).published_at)?.day }}</span>
-                <span class="web-num mt-1.5 text-[11px] font-medium tracking-widest text-muted-foreground">{{ dateParts(vals(item).published_at)?.ym }}</span>
+
+              <!-- 推荐阅读 -->
+              <div v-if="recommendedItems.length" class="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
+                <h4 class="flex items-center gap-2 text-sm font-bold text-foreground">
+                  <span class="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+                  {{ t('推荐阅读') }}
+                </h4>
+                <div class="mt-4 flex flex-col divide-y divide-border/50">
+                  <a
+                    v-for="(item, idx) in recommendedItems"
+                    :key="`rec-${String(item.key)}`"
+                    :href="localePath(recordPath('article', extractId(String(item.key), vals(item))))"
+                    class="group flex items-start gap-3 py-3 first:pt-0 last:pb-0 transition-colors"
+                  >
+                    <span class="web-num mt-0.5 text-xs font-bold text-muted-foreground/60 transition-colors duration-200 group-hover:text-primary">
+                      {{ String(idx + 1).padStart(2, '0') }}
+                    </span>
+                    <div class="min-w-0 flex-1">
+                      <p class="web-clamp-1 text-sm font-medium text-foreground transition-colors duration-200 group-hover:text-primary">
+                        {{ vals(item).title }}
+                      </p>
+                      <p v-if="formatDate(vals(item).published_at)" class="web-num mt-1 text-[11px] text-muted-foreground">
+                        {{ formatDate(vals(item).published_at) }}
+                      </p>
+                    </div>
+                  </a>
+                </div>
               </div>
-            </a>
-          </div>
-          <div v-else class="flex flex-col items-center gap-4 rounded-card border border-dashed border-border bg-card p-16 text-center">
-            <div class="grid size-16 place-items-center rounded-full bg-muted">
-              <svg class="size-8 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
-                <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
-                <path d="M10 13H8"/>
-                <path d="M16 17H8"/>
-                <path d="M16 13h-2"/>
-              </svg>
-            </div>
-            <p class="text-sm text-muted-foreground">{{ t('该栏目暂无内容，敬请期待。') }}</p>
+
+              <!-- 了解企业 / 快捷通道 -->
+              <div class="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
+                <h4 class="flex items-center gap-2 text-sm font-bold text-foreground">
+                  <span class="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+                  {{ siteName ? `${t('了解')}${siteName}` : t('了解我们') }}
+                </h4>
+                <nav class="mt-4 flex flex-col gap-1.5">
+                  <a
+                    v-for="link in quickLinks"
+                    :key="link.href"
+                    :href="localePath(link.href)"
+                    class="group flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-muted/80 hover:text-foreground hover:translate-x-0.5"
+                  >
+                    <span>{{ link.label }}</span>
+                    <svg class="size-3.5 text-muted-foreground transition-transform duration-200 group-hover:translate-x-1 group-hover:text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
+                    </svg>
+                  </a>
+                </nav>
+              </div>
+
+              <!-- 咨询热线(若有) -->
+              <div v-if="phone" class="rounded-2xl border border-border/80 bg-gradient-to-br from-card to-muted/40 p-5 shadow-xs">
+                <p class="text-xs font-medium text-muted-foreground">{{ t('服务咨询热线') }}</p>
+                <a :href="`tel:${phone.replace(/-/g, '')}`" class="web-num mt-1.5 flex items-center gap-2 text-base font-bold text-primary hover:underline">
+                  <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                  {{ phone }}
+                </a>
+              </div>
+            </aside>
           </div>
         </div>
       </div>
@@ -252,12 +417,13 @@ const pillClass = (active: boolean) =>
       />
       <div v-if="bannerSlides.length" class="border-b border-border bg-background">
         <div class="mx-auto max-w-site px-4 py-3 sm:px-6">
-          <WebBreadcrumbs :items="[{ label: t('首页'), href: '/' }, { label: t('新闻资讯'), href: `/articles/${defaultSlug}` }]" />
+          <WebBreadcrumbs :items="detailCrumbs" />
         </div>
       </div>
-      <section v-else class="bg-secondary text-secondary-foreground">
-        <div class="mx-auto max-w-site px-4 py-8 sm:px-6 sm:py-10">
-          <WebBreadcrumbs :items="[{ label: t('首页'), href: '/' }, { label: t('新闻资讯'), href: `/articles/${defaultSlug}` }]" :min-levels="2" on-dark />
+      <section v-else class="relative overflow-hidden bg-secondary text-secondary-foreground">
+        <div class="pointer-events-none absolute -right-20 -top-20 size-80 rounded-full bg-primary/15 blur-3xl" aria-hidden="true" />
+        <div class="relative mx-auto max-w-site px-4 py-8 sm:px-6 sm:py-10">
+          <WebBreadcrumbs :items="detailCrumbs" :min-levels="2" on-dark />
         </div>
       </section>
 
@@ -268,64 +434,120 @@ const pillClass = (active: boolean) =>
             <!-- 左侧边栏 -->
             <aside class="w-full shrink-0 lg:sticky lg:top-20 lg:w-64 lg:self-start">
               <!-- 分类导航 -->
-              <div class="rounded-card border border-border bg-card p-5 shadow-card">
-                <h4 class="mb-4 text-sm font-semibold text-foreground">{{ t('分类') }}</h4>
-                <nav class="flex flex-col gap-1">
+              <div class="rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
+                <h4 class="mb-4 flex items-center gap-2 text-sm font-bold text-foreground">
+                  <span class="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+                  {{ t('分类') }}
+                </h4>
+                <nav class="flex flex-col gap-1.5">
                   <a
                     v-for="cat in navCategories"
                     :key="cat.slug"
                     :href="localePath(`/articles/${cat.slug}`)"
                     :class="[
-                      'flex items-center rounded-md px-3 py-2 text-sm transition-colors',
+                      'group flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200',
                       cat.active
-                        ? 'bg-primary/10 font-medium text-primary'
-                        : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                        ? 'bg-primary/10 text-primary font-semibold shadow-2xs'
+                        : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground hover:translate-x-0.5',
                     ]"
-                  >{{ cat.label }}</a>
+                  >
+                    <span>{{ cat.label }}</span>
+                    <svg
+                      :class="['size-3.5 transition-transform duration-200', cat.active ? 'text-primary' : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 text-muted-foreground']"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="m9 18 6-6-6-6" />
+                    </svg>
+                  </a>
                 </nav>
               </div>
 
-              <!-- 分享组件(可配置渠道/可替换图标的公共块) -->
-              <div class="mt-5 rounded-card border border-border bg-card p-5 shadow-card">
+              <!-- 分享组件 -->
+              <div class="mt-5 rounded-2xl border border-border/80 bg-card p-5 shadow-xs">
                 <WebShare :title="recValues?.title" :summary="recValues?.summary" />
               </div>
             </aside>
 
             <!-- 右侧文章内容 -->
             <article class="min-w-0 flex-1">
-              <h1 class="font-display text-display-md font-bold leading-tight">{{ recValues?.title }}</h1>
-              <div class="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              <h1 class="font-display text-2xl font-bold leading-tight tracking-tight sm:text-3xl lg:text-4xl">{{ recValues?.title }}</h1>
+              <div class="mt-4 flex flex-wrap items-center gap-3 border-b border-border/60 pb-6 text-sm text-muted-foreground">
                 <a
                   v-if="detailCat"
                   :href="localePath(`/articles/${detailCat.slug}`)"
-                  class="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                  class="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
                 >{{ detailCat.label }}</a>
-                <span v-if="dateOf" class="web-num flex items-center gap-1.5">
-                  <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                <span v-if="dateOf" class="web-num flex items-center gap-1.5 font-medium">
+                  <svg class="size-4 text-primary/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
                   {{ dateOf }}
                 </span>
               </div>
+
+              <!-- 详情封面（若有） -->
+              <figure v-if="recValues?.cover" class="mt-8 overflow-hidden rounded-2xl border border-border/80 shadow-card">
+                <img :src="String(recValues.cover)" :alt="String(recValues?.title ?? '')" class="aspect-[16/9] w-full object-cover" loading="lazy">
+              </figure>
+              <!-- 详情视频（若有） -->
+              <div v-if="recValues?.video" class="mt-8 overflow-hidden rounded-2xl border border-border bg-black shadow-card">
+                <video :src="String(recValues.video)" controls preload="metadata" playsinline class="aspect-video w-full" />
+              </div>
+
               <WebRichText v-if="recValues?.body" :html="recValues.body" tag="section" class="mt-8" />
 
-              <nav class="mt-12 grid gap-4 border-t border-border pt-8 sm:grid-cols-2" :aria-label="t('文章切换')">
-                <a
-                  v-if="record?.navigation?.previous"
-                  :href="localePath(recordPath('article', record.navigation.previous.id))"
-                  class="group rounded-card bg-card p-5 shadow-card web-motion hover:-translate-y-1 hover:shadow-lift"
-                >
-                  <p class="text-xs text-muted-foreground">{{ t('上一篇') }}</p>
-                  <p class="web-clamp-2 mt-1 text-sm font-medium group-hover:text-primary">{{ record.navigation.previous.title }}</p>
-                </a>
-                <span v-else aria-hidden="true" />
-                <a
-                  v-if="record?.navigation?.next"
-                  :href="localePath(recordPath('article', record.navigation.next.id))"
-                  class="group rounded-card bg-card p-5 text-right shadow-card web-motion hover:-translate-y-1 hover:shadow-lift sm:col-start-2"
-                >
-                  <p class="text-xs text-muted-foreground">{{ t('下一篇') }}</p>
-                  <p class="web-clamp-2 mt-1 text-sm font-medium group-hover:text-primary">{{ record.navigation.next.title }}</p>
-                </a>
-              </nav>
+              <!-- 上下篇切换与返回列表导航 -->
+              <div class="mt-12 border-t border-border/70 pt-8">
+                <nav class="grid gap-4 sm:grid-cols-2" :aria-label="t('文章切换')">
+                  <a
+                    v-if="record?.navigation?.previous"
+                    :href="localePath(recordPath('article', record.navigation.previous.id))"
+                    class="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
+                  >
+                    <div class="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors group-hover:text-primary">
+                      <svg class="size-3.5 transition-transform duration-200 group-hover:-translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m15 18-6-6 6-6" />
+                      </svg>
+                      <span>{{ t('上一篇') }}</span>
+                    </div>
+                    <p class="web-clamp-2 mt-2 text-sm font-medium leading-snug text-foreground transition-colors group-hover:text-primary">
+                      {{ record.navigation.previous.title }}
+                    </p>
+                  </a>
+                  <span v-else aria-hidden="true" />
+
+                  <a
+                    v-if="record?.navigation?.next"
+                    :href="localePath(recordPath('article', record.navigation.next.id))"
+                    class="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-card p-5 text-right shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md sm:col-start-2"
+                  >
+                    <div class="flex items-center justify-end gap-1.5 text-xs font-semibold text-muted-foreground transition-colors group-hover:text-primary">
+                      <span>{{ t('下一篇') }}</span>
+                      <svg class="size-3.5 transition-transform duration-200 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
+                    </div>
+                    <p class="web-clamp-2 mt-2 text-sm font-medium leading-snug text-foreground transition-colors group-hover:text-primary">
+                      {{ record.navigation.next.title }}
+                    </p>
+                  </a>
+                </nav>
+
+                <div class="mt-8 flex justify-center">
+                  <a
+                    :href="detailCat ? localePath(`/articles/${detailCat.slug}`) : localePath(`/articles/${defaultSlug}`)"
+                    class="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/60 px-5 py-2 text-xs font-semibold text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-card hover:text-primary active:scale-95"
+                  >
+                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m15 18-6-6 6-6" />
+                    </svg>
+                    <span>{{ t('返回列表') }}</span>
+                  </a>
+                </div>
+              </div>
             </article>
           </div>
         </div>
