@@ -13,6 +13,8 @@ export interface ApiEnvelope<T = unknown> {
 }
 
 export interface SiteContact {
+  /** 联系点名称（多网点时用于选择，如「北京公司」）；单体 contact 不填。 */
+  name?: string | null
   phone?: string | null
   email?: string | null
   address?: string | null
@@ -36,6 +38,8 @@ export interface SiteInfo {
     show_name: boolean
     copyright: string | null
     contact?: SiteContact | null
+    /** 多联系点（分公司/办公地）：非空时端上先让用户选，空数组回落到 contact。 */
+    contacts?: SiteContact[] | null
   }
 }
 
