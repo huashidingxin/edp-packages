@@ -28,6 +28,8 @@ export default defineConfig({
         'lib/profile': 'src/lib/profile.ts',
         'lib/site': 'src/lib/site.ts',
         'lib/siteRequests': 'src/lib/siteRequests.ts',
+        'lib/prerender': 'src/lib/prerender.ts',
+        'lib/revalidate': 'src/lib/revalidate.ts',
       },
       formats: ['es'],
     },

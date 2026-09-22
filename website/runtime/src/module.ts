@@ -12,30 +12,41 @@
  * - 渲染策略声明（website.rendering）→ Nitro routeRules 编译：
  *     default 'ssg'  → 全站预渲染（配合 `nuxt generate` 静态托管）
  *     overrides      → 单路径 'ssr' | 'spa' | 'swr' | 'isr'，混合站才需要 Node
+ *     pagination     → 全局分页：任何 `/{...}/page/{n}` 前 N 页预渲染，其余运行时缓存
+ *     sections       → 区段混合：该区段详情页（纯数字 slug）转运行时缓存
+ *                      （见 lib/prerender.ts；node-server 上用 'swr'，'isr' 是空规则）
+ * - 缓存按需失效端点 `POST /api/__isr/revalidate`：后端内容发布后立即刷新页面
+ *   （HMAC 签名 + 时间窗 + nonce，见 lib/revalidate.ts；未配 secret 即 404）
  *
  * 站点 nuxt.config 最小用法：
  *   modules: ['@edp/website-runtime']
  *   runtimeConfig: { apiBase, public: { forceHost, apiBase } }
  */
-import { defineNuxtModule, addPlugin, addImportsDir, addLayout, addTypeTemplate, addComponentsDir, useLogger } from '@nuxt/kit'
+import { defineNuxtModule, addPlugin, addImportsDir, addLayout, addTypeTemplate, addComponentsDir, addServerHandler, useLogger } from '@nuxt/kit'
 import { defu } from 'defu'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { resolveModulesOptions, type WebsiteModulesOptions, type ResolvedWebsiteModules } from './lib/modules.ts'
 import { findLayoutNuxtLayoutUsage } from './lib/layoutLint.ts'
+import {
+  DEFAULT_CACHE_MAX_AGE,
+  createPaginationPrerenderFilter,
+  createSectionPrerenderFilter,
+  normalizeLocalePrefixes,
+  paginationRouteModes,
+  resolvePaginationPolicy,
+  resolveSectionPolicies,
+  sectionRouteModes,
+  type RenderMode,
+  type WebsiteRenderingOptions,
+} from './lib/prerender.ts'
+import { REVALIDATE_ROUTE, type PageCodePaths } from './lib/revalidate.ts'
 
 const moduleDir = dirname(fileURLToPath(import.meta.url))
 
-/** 页面渲染模式。 */
-export type RenderMode = 'ssg' | 'ssr' | 'spa' | 'swr' | 'isr'
-
-export interface WebsiteRenderingOptions {
-  /** 全站默认模式；'ssg' 时自动启用 crawlLinks 预渲染。 */
-  default?: RenderMode
-  /** 按路由 pattern 覆盖，如 { '/user/**': 'spa' }。 */
-  overrides?: Record<string, RenderMode>
-}
+export type { RenderMode, WebsitePaginationOptions, WebsiteRenderingSection, WebsiteRenderingOptions } from './lib/prerender.ts'
+export type { PageCodePaths, RevalidatePayload, RevalidateScope } from './lib/revalidate.ts'
 
 export interface WebsiteRuntimeOptions {
   registerComposables: boolean
@@ -80,6 +91,53 @@ function hasLocalPage(pagesDir: string, relative: string): boolean {
 }
 
 /**
+ * 收集 `page code → 路由路径`：
+ * - 模板页直接读注册时写入的 `meta.sitePageData.code`；
+ * - 站点本地页从文件里读 `definePageMeta({ sitePageData: { code } })`（与 layoutLint 同手法，
+ *   pages:extend 阶段拿不到 Nuxt 后续解析出的 meta）。
+ * 带动态段的 code（如 `about-:slug` → `/about/:slug`）收为前缀模式。
+ */
+function collectPageCodePaths(
+  pages: Array<{ path?: string; file?: string; meta?: Record<string, unknown> }>,
+  target: PageCodePaths,
+): void {
+  for (const page of pages) {
+    const path = page.path
+    if (!path) continue
+    const meta = page.meta?.sitePageData as { code?: string } | undefined
+    const code = meta?.code ?? readPageCode(page.file)
+    if (!code) continue
+    registerPageCode(target, code, path)
+  }
+}
+
+function readPageCode(file?: string): string | null {
+  if (!file) return null
+  try {
+    const source = readFileSync(file, 'utf-8')
+    const match = source.match(/sitePageData\s*:\s*\{[\s\S]{0,160}?code\s*:\s*['"]([a-z0-9][a-z0-9_-]*)['"]/)
+    return match?.[1] ?? null
+  } catch {
+    return null
+  }
+}
+
+function registerPageCode(target: PageCodePaths, code: string, path: string): void {
+  const normalized = path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path
+  const codeSplit = code.indexOf(':')
+  const pathSplit = normalized.indexOf(':')
+  if (codeSplit === -1 && pathSplit === -1) {
+    target.exact[code] = normalized
+    return
+  }
+  if (codeSplit > 0 && pathSplit > 0) {
+    const codePrefix = code.slice(0, codeSplit)
+    const pathPrefix = normalized.slice(0, normalized.lastIndexOf('/', pathSplit) + 1)
+    target.patterns.push({ codePrefix, pathPrefix: pathPrefix || '/' })
+  }
+}
+
+/**
  * 扫描站点本地 layouts/*.vue，发现自引用 <NuxtLayout> 即醒目报错（详见 src/lib/layoutLint.ts 注释）。
  * 自递归的症状是 dev server 首个页面请求起 100% CPU 死循环 —— 启动期直接前置报出。
  */
@@ -115,16 +173,16 @@ function lintLocalLayouts(nuxt: { options: { srcDir: string } }): void {
   }
 }
 
-function modeToRouteRule(mode: RenderMode): Record<string, unknown> {
+function modeToRouteRule(mode: RenderMode, maxAge: number = DEFAULT_CACHE_MAX_AGE): Record<string, unknown> {
   switch (mode) {
     case 'ssg':
       return { prerender: true }
     case 'spa':
       return { ssr: false }
     case 'swr':
-      return { swr: 60 }
+      return { swr: maxAge }
     case 'isr':
-      return { isr: 60 }
+      return { isr: maxAge }
     default:
       return {}
   }
@@ -141,7 +199,7 @@ export default defineNuxtModule({
     registerTemplates: true,
     modules: {},
     widgets: { chat: true, user: false },
-    rendering: { default: 'ssg', overrides: {} },
+    rendering: { default: 'ssg', overrides: {}, sections: {} },
   } as WebsiteRuntimeOptions,
   setup(options, nuxt) {
     // SSR SiteClient 注入 + bootstrap 预取 + 会话配置（universal 插件）
@@ -198,6 +256,9 @@ export default defineNuxtModule({
       website: { modules },
     }) as typeof nuxt.options.appConfig
 
+    // page code → 路由路径（缓存失效的依赖清单用：后端只知道 code，站点负责翻成 URL）
+    const pageCodePaths: PageCodePaths = { exact: {}, patterns: [] }
+
     if (options.registerTemplates) {
       const pagesDir = resolve(nuxt.options.srcDir, 'pages')
       nuxt.hook('pages:extend', (pages) => {
@@ -208,21 +269,49 @@ export default defineNuxtModule({
           if (exists) continue
           pages.push({ path: tpl.path, name: tpl.name, file: tpl.file, meta: { websiteModules: modules, ...(tpl.dataCode ? { sitePageData: { code: tpl.dataCode } } : {}) } })
         }
+        collectPageCodePaths(pages, pageCodePaths)
       })
+    } else {
+      nuxt.hook('pages:extend', (pages) => collectPageCodePaths(pages, pageCodePaths))
     }
+
+    /* ---------- 缓存按需失效端点 ---------- */
+    // POST /api/__isr/revalidate：后端发布内容后立即刷新相关页面；未配 secret 时端点返回 404
+    addServerHandler({
+      route: REVALIDATE_ROUTE,
+      method: 'post',
+      handler: resolve(moduleDir, 'server/revalidate.ts'),
+    })
 
     /* ---------- 渲染策略 → routeRules ---------- */
     const rendering = options.rendering ?? {}
+    const sectionPolicies = resolveSectionPolicies(rendering.sections)
+    const paginationPolicy = resolvePaginationPolicy(rendering.pagination)
+    const maxAge = Math.max(Math.floor(Number(rendering.maxAge ?? DEFAULT_CACHE_MAX_AGE)) || DEFAULT_CACHE_MAX_AGE, 1)
     const rules: Record<string, Record<string, unknown>> = {}
+    // 区段混合渲染先铺 `/<section>/**`（含语言前缀变体），显式 overrides 后写并覆盖同 key
+    for (const [pattern, mode] of Object.entries(sectionRouteModes(sectionPolicies, rendering.localePrefixes))) {
+      rules[pattern] = modeToRouteRule(mode, maxAge)
+    }
+    // 全局分页策略：`/**` 一条覆盖所有区段与语言前缀（未预渲染的页面按 mode 缓存渲染）
+    for (const [pattern, mode] of Object.entries(paginationRouteModes(paginationPolicy))) {
+      rules[pattern] = modeToRouteRule(mode, maxAge)
+    }
     for (const [pattern, mode] of Object.entries(rendering.overrides ?? {})) {
-      rules[pattern] = modeToRouteRule(mode)
+      rules[pattern] = modeToRouteRule(mode, maxAge)
     }
     const def = rendering.default ?? 'ssg'
     if (def !== 'ssr') {
-      const rule = modeToRouteRule(def)
+      const rule = modeToRouteRule(def, maxAge)
       if (rule && Object.keys(rule).length > 0 && !rules['/**']) {
         rules['/**'] = rule
       }
+    }
+    // API/端点一律不进页面缓存：Nitro 的缓存键只含 URL（POST 请求体不参与），
+    // 一旦被缓存会把首个响应复用给后续调用（revalidate 端点自身踩过这个坑）。
+    // 必须在规则全部生成之后判断（含 default 推导出的 `/**`）。
+    if (Object.values(rules).some((rule) => 'cache' in rule || 'swr' in rule || 'isr' in rule)) {
+      rules['/api/**'] = { cache: false }
     }
     const nitroOptions = (nuxt.options as unknown as { nitro?: Record<string, unknown> }).nitro ??= {}
     if (Object.keys(rules).length > 0) {
@@ -235,6 +324,28 @@ export default defineNuxtModule({
         ...((nitroOptions.prerender as Record<string, unknown>) ?? {}),
       }
     }
+    // 混合策略必须同时排除「详情 + 深分页」的预渲染，否则 crawler 会把它们一并产出（静态文件优先 → 白配缓存）
+    const prerenderFilters = [
+      createSectionPrerenderFilter(sectionPolicies),
+      createPaginationPrerenderFilter(paginationPolicy),
+    ].filter((filter): filter is (path: string) => boolean => filter !== null)
+    if (prerenderFilters.length > 0) {
+      const prerender = (nitroOptions.prerender as Record<string, unknown>) ?? {}
+      const ignore = Array.isArray(prerender.ignore) ? prerender.ignore : []
+      nitroOptions.prerender = { ...prerender, ignore: [...ignore, ...prerenderFilters] }
+    }
+
+    /* ---------- 缓存失效端点的运行期配置（私有） ---------- */
+    const publicConfig = (nuxt.options.runtimeConfig.public ?? {}) as Record<string, unknown>
+    const existingRevalidate = (nuxt.options.runtimeConfig.revalidate ?? {}) as Record<string, unknown>
+    nuxt.options.runtimeConfig.revalidate = defu(existingRevalidate, {
+      // 未配置即视作未启用（端点 404）；运行期可用 NUXT_REVALIDATE_SECRET 覆盖
+      secret: String(process.env.NUXT_ISR_REVALIDATE_SECRET || process.env.NUXT_REVALIDATE_SECRET || ''),
+      applicationCode: String(publicConfig.applicationCode ?? process.env.NUXT_PUBLIC_APPLICATION_CODE ?? ''),
+      localePrefixes: normalizeLocalePrefixes(rendering.localePrefixes),
+      // 对象在 pages:extend 阶段被填充（同引用，构建后期读取）
+      pageCodePaths,
+    })
 
     // widgets 开关透传给 layout（经 runtimeConfig public）
     nuxt.options.runtimeConfig.public = nuxt.options.runtimeConfig.public ?? {}

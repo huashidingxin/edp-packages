@@ -8,8 +8,8 @@
  *    否则会生成 `/en/en/...` 这类 404 链接。
  */
 
-/** `/en`、`/en-US/...` 这类首段语言前缀。 */
-const LOCALE_PREFIX_RE = /^\/[a-z]{2,3}(-[a-z0-9]{2,8})?(\/|$)/i
+/** `/en`、`/en-US/...` 这类首段语言前缀（prerender 过滤器复用同一条规则）。 */
+export const LOCALE_PREFIX_RE = /^\/[a-z]{2,3}(-[a-z0-9]{2,8})?(\/|$)/i
 
 /** 语言代码 -> URL 短前缀（`zh-CN` -> `zh`，`en_US` -> `en`）。 */
 export const localeShort = (code: string): string => {

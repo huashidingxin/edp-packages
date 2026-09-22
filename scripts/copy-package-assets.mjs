@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const targets = [
   ['website/ui', ['src/styles.css', 'src/blocks']],
-  ['website/runtime', ['src/pages', 'src/layouts', 'src/components', 'src/app.vue', 'src/plugin.site.ts', 'src/router.options.ts', 'src/env.d.ts']],
+  ['website/runtime', ['src/pages', 'src/layouts', 'src/components', 'src/server', 'src/app.vue', 'src/plugin.site.ts', 'src/router.options.ts', 'src/env.d.ts']],
 ]
 
 async function rewriteRelativeSpecifiers(directory) {
