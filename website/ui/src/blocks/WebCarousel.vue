@@ -161,7 +161,7 @@ onBeforeUnmount(() => ro?.disconnect())
           v-for="(item, i) in items"
           :key="i"
           data-carousel-card
-          class="web-carousel__card shrink-0 snap-start"
+          class="web-carousel__card group shrink-0 snap-start"
           :href="item.href ?? undefined"
         >
           <img
@@ -169,7 +169,7 @@ onBeforeUnmount(() => ro?.disconnect())
             :alt="item.alt ?? ''"
             loading="lazy"
             draggable="false"
-            class="rounded-card border border-border shadow-card"
+            class="rounded-card border border-border shadow-card transition-shadow duration-300 group-hover:shadow-lift"
             :style="`height: ${height}px; width: 100%; object-fit: var(--web-carousel-fit, cover)`"
           >
         </component>

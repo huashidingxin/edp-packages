@@ -404,6 +404,30 @@
     }
   }
 
+  /* 卡片悬浮整卡上提（公共默认，作用于项根 [data-carousel-card]，调用方自定义 slot 内容随之整体上提）：
+     --web-carousel-lift 调距离（站点声明 0 即关闭）；--web-carousel-breath 调根/视口上下呼吸位。
+     overflow(x) 容器会连带裁剪 y 轴：根与视口各留内边距承接位移与阴影，负 margin 保持外部高度不变。 */
+  .web-carousel,
+  .web-carousel__viewport {
+    padding-block: var(--web-carousel-breath, 16px);
+    margin-block: calc(-1 * var(--web-carousel-breath, 16px));
+  }
+  @media (hover: hover) {
+    .web-carousel [data-carousel-card] {
+      transition: translate var(--web-motion-duration, 0.35s) var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1));
+    }
+    .web-carousel [data-carousel-card]:hover {
+      translate: 0 calc(-1 * var(--web-carousel-lift, 4px));
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .web-carousel [data-carousel-card],
+    .web-carousel [data-carousel-card]:hover {
+      transition: none;
+      translate: none;
+    }
+  }
+
   /* WebHeader —— 移动端抽屉滑入/滑出 */
   .web-sheet[data-state='open'] {
     animation: web-header-sheet-in 0.26s var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1));
