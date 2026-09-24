@@ -428,6 +428,105 @@
     }
   }
 
+  /* ---------- 居中聚焦卡片轮播 (WebCarousel coverflow / centered 模式) ---------- */
+  .web-carousel__coverflow-stage,
+  .web-centered-carousel {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    padding: 24px 0 32px;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: pan-y;
+    cursor: grab;
+  }
+  .web-carousel__coverflow-stage:active,
+  .web-centered-carousel:active {
+    cursor: grabbing;
+  }
+  .web-carousel__coverflow-track,
+  .web-centered-carousel__track {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    min-height: 440px;
+    perspective: 1000px;
+  }
+  .web-carousel__coverflow-item,
+  .web-centered-carousel__item {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transition: transform 0.45s cubic-bezier(0.25, 1, 0.5, 1),
+                opacity 0.45s cubic-bezier(0.25, 1, 0.5, 1),
+                z-index 0.45s;
+    cursor: pointer;
+    will-change: transform, opacity;
+  }
+  /* 激活项（正中心）：最大最突出 */
+  .web-carousel__coverflow-item.is-active,
+  .web-centered-carousel__item.is-active {
+    transform: translate(-50%, -50%) scale(1.12);
+    z-index: 20;
+    opacity: 1;
+  }
+  /* 左右相邻项（前一张/后一张） */
+  .web-carousel__coverflow-item.is-prev,
+  .web-centered-carousel__item.is-prev {
+    transform: translate(calc(-50% - 310px), -50%) scale(0.92);
+    z-index: 10;
+    opacity: 0.88;
+  }
+  .web-carousel__coverflow-item.is-next,
+  .web-centered-carousel__item.is-next {
+    transform: translate(calc(-50% + 310px), -50%) scale(0.92);
+    z-index: 10;
+    opacity: 0.88;
+  }
+  /* 次外层项 */
+  .web-carousel__coverflow-item.is-prev-2,
+  .web-centered-carousel__item.is-prev-2 {
+    transform: translate(calc(-50% - 570px), -50%) scale(0.78);
+    z-index: 5;
+    opacity: 0.55;
+  }
+  .web-carousel__coverflow-item.is-next-2,
+  .web-centered-carousel__item.is-next-2 {
+    transform: translate(calc(-50% + 570px), -50%) scale(0.78);
+    z-index: 5;
+    opacity: 0.55;
+  }
+  /* 更外侧隐藏项 */
+  .web-carousel__coverflow-item.is-far,
+  .web-centered-carousel__item.is-far {
+    transform: translate(calc(-50% + (var(--offset, 0) * 280px)), -50%) scale(0.65);
+    z-index: 1;
+    opacity: 0;
+    pointer-events: none;
+  }
+  @media (max-width: 900px) {
+    .web-carousel__coverflow-track,
+    .web-centered-carousel__track {
+      min-height: 320px;
+    }
+    .web-carousel__coverflow-item.is-prev,
+    .web-centered-carousel__item.is-prev {
+      transform: translate(calc(-50% - 170px), -50%) scale(0.82);
+    }
+    .web-carousel__coverflow-item.is-next,
+    .web-centered-carousel__item.is-next {
+      transform: translate(calc(-50% + 170px), -50%) scale(0.82);
+    }
+    .web-carousel__coverflow-item.is-prev-2,
+    .web-carousel__coverflow-item.is-next-2,
+    .web-centered-carousel__item.is-prev-2,
+    .web-centered-carousel__item.is-next-2 {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+
   /* WebHeader —— 移动端抽屉滑入/滑出 */
   .web-sheet[data-state='open'] {
     animation: web-header-sheet-in 0.26s var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1));
