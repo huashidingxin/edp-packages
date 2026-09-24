@@ -345,6 +345,51 @@
     -webkit-user-drag: none;
     user-select: none;
   }
+
+  /* ---------- 连续自由轮播（WebContinuousCarousel / WebInfiniteCarousel） ---------- */
+  .web-continuous-carousel,
+  .web-infinite-carousel {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+  }
+  .web-continuous-carousel__rail,
+  .web-infinite-carousel__rail {
+    display: flex;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: pan-y;
+  }
+  .web-continuous-carousel__rail::-webkit-scrollbar,
+  .web-infinite-carousel__rail::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  .web-continuous-carousel__rail.is-dragging,
+  .web-infinite-carousel__rail.is-dragging {
+    cursor: grabbing;
+  }
+  .web-continuous-carousel__item,
+  .web-infinite-carousel__item {
+    flex-shrink: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+  }
+  .web-continuous-carousel__item img,
+  .web-infinite-carousel__item img {
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none;
+  }
+
   .web-carousel__card {
     width: min(78%, 360px);
   }

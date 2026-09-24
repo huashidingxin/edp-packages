@@ -31,6 +31,12 @@ export const componentStrings = {
     prev: '上一张',
     next: '下一张',
   },
+  WebContinuousCarousel: {
+    label: '连续自由轮播',
+  },
+  WebInfiniteCarousel: {
+    label: '无缝无限轮播',
+  },
   WebModelViewer: {
     label: '3D 模型',
     loadError: '3D 模型加载失败',

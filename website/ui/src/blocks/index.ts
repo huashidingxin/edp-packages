@@ -6,6 +6,10 @@
 
 // ── 基础件 ────────────────────────────────────────────
 export { default as WebCarousel } from './WebCarousel.vue';
+export { default as WebContinuousCarousel } from './WebContinuousCarousel.vue';
+export type { WebContinuousCarouselItem, WebContinuousCarouselProps } from './WebContinuousCarousel.vue';
+export { default as WebInfiniteCarousel } from './WebInfiniteCarousel.vue';
+export type { WebInfiniteCarouselItem, WebInfiniteCarouselProps } from './WebInfiniteCarousel.vue';
 export { default as WebMarquee } from './WebMarquee.vue';
 export { default as WebSection } from './WebSection.vue';
 export { default as WebModelViewer } from './WebModelViewer.vue';
