@@ -8,7 +8,6 @@ declare module '#app' {
   interface RuntimeConfig {
     public: {
       apiBase: string
-      forceHost: string
       applicationCode: string
       /** '1' 时会话走 MockAuthProvider（契约先行）。 */
       authMock?: string

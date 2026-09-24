@@ -12,10 +12,10 @@ export function useSiteClient(): SiteClient {
   if (!nuxt.$site) {
     const config = useRuntimeConfig()
     const apiBase = String(config.apiBase || config.public.apiBase || 'http://127.0.0.1:8787')
-    const forceHost = String(config.public.forceHost || '')
     const applicationCode = String(config.public.applicationCode || '')
     const fetcher: FetchLike = async (url, options) => $fetch(url, options as never) as Promise<never>
-    const host = forceHost ? forceHost.split(':')[0]! : (import.meta.server ? 'localhost' : window.location.hostname)
+    // host 回退真实请求 Host；applicationCode 已锁定应用，forceHost 已废弃
+    const host = import.meta.server ? 'localhost' : window.location.hostname
     return new SiteClient({ apiBase, host, applicationCode, fetch: fetcher })
   }
   return nuxt.$site as SiteClient

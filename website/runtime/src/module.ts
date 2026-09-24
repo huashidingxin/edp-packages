@@ -10,7 +10,7 @@
  *   站点本地同名页面存在时自动跳过对应模板（单页覆写粒度）
  * - 站点挂点组件目录（components/，优先级低于站点，可同名覆盖，如 SiteRecordMedia）
  * - 渲染策略声明（website.rendering）→ Nitro routeRules 编译：
- *     default 'ssg'  → 全站预渲染（配合 `nuxt generate` 静态托管）
+ *     default 'swr'  → 全站运行时缓存渲染（ISR/SWR 语义；node 部署下 `isr` 是空规则，实际由 `swr` 承载）
  *     overrides      → 单路径 'ssr' | 'spa' | 'swr' | 'isr'，混合站才需要 Node
  *     pagination     → 全局分页：任何 `/{...}/page/{n}` 前 N 页预渲染，其余运行时缓存
  *     sections       → 区段混合：该区段详情页（纯数字 slug）转运行时缓存
@@ -20,7 +20,7 @@
  *
  * 站点 nuxt.config 最小用法：
  *   modules: ['@edp/website-runtime']
- *   runtimeConfig: { apiBase, public: { forceHost, apiBase } }
+ *   runtimeConfig: { apiBase, public: { apiBase } }
  */
 import { defineNuxtModule, addPlugin, addImportsDir, addLayout, addTypeTemplate, addComponentsDir, addServerHandler, useLogger } from '@nuxt/kit'
 import { defu } from 'defu'
@@ -199,7 +199,7 @@ export default defineNuxtModule({
     registerTemplates: true,
     modules: {},
     widgets: { chat: true, user: false },
-    rendering: { default: 'ssg', overrides: {}, sections: {} },
+    rendering: { default: 'swr', overrides: {}, sections: {} },
   } as WebsiteRuntimeOptions,
   setup(options, nuxt) {
     // SSR SiteClient 注入 + bootstrap 预取 + 会话配置（universal 插件）
@@ -317,22 +317,36 @@ export default defineNuxtModule({
     if (Object.keys(rules).length > 0) {
       nitroOptions.routeRules = { ...rules, ...((nitroOptions.routeRules as Record<string, unknown>) ?? {}) }
     }
+    // 本地 dev：把 /api 反代到后端，使相对路径 apiBase('/') 在开发期也同源可用
+    // （devProxy 仅 nuxt dev 生效，nuxt build/generate 忽略，无副作用）。
+    const existingDevProxy = (nitroOptions.devProxy as Record<string, unknown>) ?? {}
+    if (!('/api' in existingDevProxy)) {
+      existingDevProxy['/api'] = {
+        target: process.env.NUXT_API_BASE || 'http://127.0.0.1:8787',
+        changeOrigin: true,
+      }
+    }
+    nitroOptions.devProxy = existingDevProxy
     if (def === 'ssg') {
       nitroOptions.prerender = {
         crawlLinks: true,
         routes: ['/'],
         ...((nitroOptions.prerender as Record<string, unknown>) ?? {}),
       }
-    }
-    // 混合策略必须同时排除「详情 + 深分页」的预渲染，否则 crawler 会把它们一并产出（静态文件优先 → 白配缓存）
-    const prerenderFilters = [
-      createSectionPrerenderFilter(sectionPolicies),
-      createPaginationPrerenderFilter(paginationPolicy),
-    ].filter((filter): filter is (path: string) => boolean => filter !== null)
-    if (prerenderFilters.length > 0) {
-      const prerender = (nitroOptions.prerender as Record<string, unknown>) ?? {}
-      const ignore = Array.isArray(prerender.ignore) ? prerender.ignore : []
-      nitroOptions.prerender = { ...prerender, ignore: [...ignore, ...prerenderFilters] }
+      // 混合策略必须同时排除「详情 + 深分页」的预渲染，否则 crawler 会把它们一并产出（静态文件优先 → 白配缓存）
+      const prerenderFilters = [
+        createSectionPrerenderFilter(sectionPolicies),
+        createPaginationPrerenderFilter(paginationPolicy),
+      ].filter((filter): filter is (path: string) => boolean => filter !== null)
+      if (prerenderFilters.length > 0) {
+        const prerender = (nitroOptions.prerender as Record<string, unknown>) ?? {}
+        const ignore = Array.isArray(prerender.ignore) ? prerender.ignore : []
+        nitroOptions.prerender = { ...prerender, ignore: [...ignore, ...prerenderFilters] }
+      }
+    } else {
+      // 非 SSG（ISR/SWR/SSR/SPA）不预渲染：清掉任何遗留的 nitro.prerender，
+      // 否则静态文件优先会绕过运行时缓存规则，等于没切渲染策略。
+      delete nitroOptions.prerender
     }
 
     /* ---------- 缓存失效端点的运行期配置（私有） ---------- */
@@ -346,6 +360,14 @@ export default defineNuxtModule({
       // 对象在 pages:extend 阶段被填充（同引用，构建后期读取）
       pageCodePaths,
     })
+
+    // 浏览器端 API 基地址：默认相对路径('/')，由部署层 nginx 把 /api 反代到后端，
+    // 实现同源、免 CORS、全站统一一个值（不再逐站写死 127.0.0.1:8787）。
+    // 注意：public 绝不继承 NUXT_API_BASE（那是 SSR 服务端专用、可能是内网 IP），
+    // 否则浏览器会拿到内网地址导致客户端接口全部失败。仅 NUXT_PUBLIC_API_BASE 可显式覆盖。
+    nuxt.options.runtimeConfig.public = nuxt.options.runtimeConfig.public ?? {}
+    ;(nuxt.options.runtimeConfig.public as Record<string, unknown>).apiBase =
+      String(process.env.NUXT_PUBLIC_API_BASE || '/')
 
     // widgets 开关透传给 layout（经 runtimeConfig public）
     nuxt.options.runtimeConfig.public = nuxt.options.runtimeConfig.public ?? {}

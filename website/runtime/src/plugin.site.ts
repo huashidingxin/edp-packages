@@ -13,11 +13,11 @@ import { prefetchSiteData, requestLocaleFromPath, resolvePageDataRoute } from '.
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig()
   const apiBase = String(config.apiBase || config.public.apiBase || 'http://127.0.0.1:8787')
-  const forceHost = String(config.public.forceHost || '')
   const applicationCode = String(config.public.applicationCode || '')
   const authMock = String(config.public.authMock || '') === '1'
   const requestHost = import.meta.server ? useRequestHeaders(['host']).host : window.location.hostname
-  const host = (forceHost || requestHost || 'localhost').split(':')[0] || 'localhost'
+  // host 始终回退真实请求 Host；applicationCode 已锁定应用，forceHost 已废弃
+  const host = (requestHost || 'localhost').split(':')[0] || 'localhost'
   const client = createSiteClient({
     apiBase, host, applicationCode, fetch: $fetch as unknown as FetchLike,
     ...(authMock ? { auth: new MockAuthProvider() } : {}),
