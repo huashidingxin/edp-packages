@@ -42,11 +42,14 @@ const props = withDefaults(defineProps<{
   t?: FormT
   /** ruleSpecId：规范选择器当前选中 id（未启用时 undefined）；multipart 文件列表值为 FormFile（含 raw）。 */
   submit?: (payload: Record<string, unknown>, files: Record<string, FormFile[]>, ruleSpecId?: number | null) => Promise<unknown>
+  /** 是否显示「重置」按钮（默认关：多数表单不需要，开启后由站点显式声明）。 */
+  resettable?: boolean
   class?: string
 }>(), {
   schema: null,
   t: undefined,
   submit: undefined,
+  resettable: false,
   class: '',
 })
 
@@ -152,6 +155,18 @@ async function onSubmit() {
   } finally {
     submitting.value = false
   }
+}
+
+/** 重置：回到 schema 的初始默认值（不是清空 —— 有 default 的字段要还原成 default）。 */
+function onReset() {
+  for (const field of fields.value) {
+    values[field.name] = isRepeatable(field) ? groupDefaultItems(field) : defaultFor(field)
+    if (field.type === 'file') files[field.name] = []
+  }
+  for (const k of Object.keys(errors)) delete errors[k]
+  for (const k of Object.keys(warnings)) delete warnings[k]
+  submitError.value = null
+  done.value = false
 }
 
 const successTitle = computed(() => props.schema?.title ?? componentStrings.WebContactForm.successTitle)
@@ -279,6 +294,15 @@ function fieldRequired(field: FormField): boolean {
           ]"
         >
           {{ submitting ? t('Form.submitting') : submitText }}
+        </button>
+        <button
+          v-if="resettable"
+          type="button"
+          :disabled="submitting"
+          class="inline-flex h-11 items-center rounded-md border border-border bg-background px-8 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-60"
+          @click="onReset"
+        >
+          {{ t('Form.reset') }}
         </button>
         <p v-if="submitError" class="text-sm text-destructive">{{ submitError }}</p>
       </div>

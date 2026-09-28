@@ -90,6 +90,7 @@ export const componentStrings = {
   },
   WebContactForm: {
     submit: '提交',
+    reset: '重置',
     submitting: '提交中…',
     submitFailed: '提交失败，请稍后重试。',
     successTitle: '提交成功',
