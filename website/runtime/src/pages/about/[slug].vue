@@ -26,44 +26,36 @@ const slug = computed(() => String(route.params.slug ?? ''))
 const pageCode = computed(() => `about-${slug.value}`)
 
 const { data: page } = useSitePageData({ code: pageCode })
-const content = computed<Record<string, any>>(() => (page.value?.blocks?.body as Record<string, any>) ?? {})
-
-/* 内容形态兼容：后台存在扁平（title/summary/body/sections）与 intro 包裹
- * （intro:{eyebrow,title,summary,body} + sections/stats/pillars）两种写法，
- * 此处统一解析为 WebAbout 的 props，页面模板不感知差异。 */
-const intro = computed<Record<string, any>>(() => {
-  const i = content.value.intro
-  return i && typeof i === 'object' ? (i as Record<string, any>) : {}
+/* 标准块（docs/saas-website-api.md §1.2A）：intro=导语卡 / body=正文卡 /
+ * sections=版块列表 / stats=数据条目；全部只含 card 约定字段。 */
+const blocks = computed<Record<string, any>>(() => (page.value?.blocks as Record<string, any>) ?? {})
+const asObj = (v: any): Record<string, any> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, any>) : {})
+const intro = computed<Record<string, any>>(() => asObj(blocks.value.intro))
+const displayEyebrow = computed<string | null>(() => intro.value.subtitle ?? null)
+const displayImage = computed<string | null>(() => intro.value.image ?? null)
+/* 标题：intro.title → page.page.title（后台 page_locales） */
+const heroTitle = computed(() => intro.value.title || page.value?.page?.title || t('关于我们'))
+const displaySummary = computed(() => intro.value.content ?? '')
+const displayBody = computed<string | null>(() => {
+  const body = asObj(blocks.value.body).content
+  return typeof body === 'string' && body.trim() ? body : null
 })
-const displayEyebrow = computed<string | null>(() => intro.value.subtitle ?? intro.value.eyebrow ?? content.value.subtitle ?? content.value.eyebrow ?? null)
-const displayImage = computed<string | null>(() => content.value.image ?? intro.value.image ?? null)
-/* 标题：intro.title → content.title → page.page.title（后台 page_locales） */
-const heroTitle = computed(() =>
-  intro.value.title || content.value.title || page.value?.page?.title || t('关于我们'))
-const displaySummary = computed(() => intro.value.content ?? intro.value.summary ?? content.value.content ?? content.value.summary ?? '')
-const displayBody = computed<string | null>(() => intro.value.content ?? intro.value.body ?? content.value.content ?? content.value.body ?? null)
-/* 特性卡：sections / pillars（摘要缺失时由 body 降级，见 normalizeAboutFeatures） */
-const displayFeatures = computed<any[]>(() =>
-  content.value.sections ?? content.value.pillars ?? content.value.features ?? content.value.values ?? content.value.steps ?? [])
-const displayStats = computed<any[]>(() => content.value.stats ?? [])
-/* 联系形态:数据驱动 —— 联系页（contact_path 指向的 slug）或页面显式配置 content.contact。
- * branding.contact 为站点级兑底（顶栏/页脚同源），页面级 content.contact 可覆盖；
- * 仅联系页启用兑底，避免其他 about 页被误判成联系形态。 */
+const displayFeatures = computed<any[]>(() => (Array.isArray(blocks.value.sections) ? blocks.value.sections : []))
+const displayStats = computed<any[]>(() => (Array.isArray(blocks.value.stats) ? blocks.value.stats : []))
+/* 联系形态:数据驱动 —— 联系页（contact_path 指向的 slug）或页面配置 contact 行卡片。
+ * 页面级 contact = cards [{title, content, target: tel:/mailto:}]；
+ * 未配置时联系页回落站点级 branding.contact（顶栏/页脚同源）。
+ * 地图配置（map/map_tk）属应用级 branding 配置，不再放页面内容。 */
 const isContactSlug = computed(() =>
   slug.value === (String(nav.value.contactPath ?? '').split('/').pop() || 'contact-us'))
-const contactInfo = computed<Record<string, string> | null>(() => {
-  const c = content.value.contact
-  if ((!c || typeof c !== 'object') && !isContactSlug.value) return null
+const brandingContact = computed<Record<string, string>>(() => {
   const branding = ((site.value.branding as any)?.contact ?? {}) as Record<string, unknown>
-  const merged = { ...branding, ...((c && typeof c === 'object') ? c : {}) } as Record<string, unknown>
-  const out = Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== null && v !== undefined && v !== '')) as Record<string, string>
-  return out.phone || out.email || out.address ? out : null
+  return Object.fromEntries(
+    Object.entries(branding).filter(([, v]) => v !== null && v !== undefined && v !== ''),
+  ) as Record<string, string>
 })
-
-/* 联系信息行（顺序固定，数据缺省自动隐藏） */
-const contactRows = computed(() => {
-  const c = contactInfo.value
-  if (!c) return []
+const brandingRows = computed(() => {
+  const c = brandingContact.value
   return [
     { key: 'phone', label: t('电话咨询'), value: c.phone ?? null, href: c.phone ? `tel:${c.phone}` : null },
     { key: 'email', label: t('邮件联系'), value: c.email ?? null, href: c.email ? `mailto:${c.email}` : null },
@@ -71,16 +63,27 @@ const contactRows = computed(() => {
     { key: 'address', label: t('到厂参观'), value: c.address ?? null, href: null },
   ].filter((r) => r.value)
 })
+const pageContactRows = computed<any[]>(() => {
+  const rows = blocks.value.contact
+  if (!Array.isArray(rows)) return []
+  return rows
+    .filter((r: any) => r && typeof r === 'object' && r.content)
+    .map((r: any) => ({ key: String(r.title ?? ''), label: String(r.title ?? ''), value: String(r.content), href: r.target ? String(r.target) : null }))
+})
+const contactRows = computed<any[]>(() => {
+  if (pageContactRows.value.length) return pageContactRows.value
+  return isContactSlug.value ? brandingRows.value : []
+})
 
-/* 地图：contact.map = "lat,lng"（天地图瓦片，需 contact.map_tk 密钥）或完整 iframe URL；缺省不渲染 */
+/* 地图：branding.contact.map = "lat,lng"（天地图瓦片，需 map_tk 密钥）或完整 iframe URL；缺省不渲染 */
 const mapIframeUrl = computed<string | null>(() => {
-  const raw = String(contactInfo.value?.map ?? '').trim()
+  const raw = String(brandingContact.value.map ?? '').trim()
   return /^https?:\/\//i.test(raw) ? raw : null
 })
 
 const mapPoint = computed<{ lat: number; lng: number } | null>(() => {
   if (mapIframeUrl.value) return null
-  const m = String(contactInfo.value?.map ?? '').trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/)
+  const m = String(brandingContact.value.map ?? '').trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/)
   if (!m) return null
   const lat = Number(m[1])
   const lng = Number(m[2])
@@ -88,8 +91,8 @@ const mapPoint = computed<{ lat: number; lng: number } | null>(() => {
 })
 
 /* 天地图 tk 密钥：应用级配置（applications.settings.branding.contact.map_tk，
- * 经 bootstrap.branding.contact 流出），页面级 content.contact.map_tk 可覆盖。无密钥不渲染瓦片地图 */
-const mapTk = computed(() => String(contactInfo.value?.map_tk ?? contactInfo.value?.map_key ?? '').trim() || null)
+ * 经 bootstrap.branding.contact 流出）。无密钥不渲染瓦片地图 */
+const mapTk = computed(() => String(brandingContact.value.map_tk ?? brandingContact.value.map_key ?? '').trim() || null)
 
 const hasMap = computed(() => Boolean(mapIframeUrl.value || (mapPoint.value && mapTk.value)))
 void hasMap
@@ -125,7 +128,7 @@ const tileSrc = (t: { x: number; y: number; s: number }, layer: 'vec_w' | 'cva_w
 const mapOpenUrl = computed<string | null>(() => {
   const p = mapPoint.value
   if (!p) return null
-  const name = encodeURIComponent(contactInfo.value?.address ?? '')
+  const name = encodeURIComponent(brandingContact.value.address ?? '')
   return `https://uri.amap.com/marker?position=${p.lng},${p.lat}&name=${name}`
 })
 
@@ -187,9 +190,9 @@ useHead({
 
 /* 表单 schema:独立轻量请求(仅联系形态发一次) */
 const formSchema = ref<FormSchema | null>(null)
-watch(contactInfo, (on) => {
+watch(contactRows, (on) => {
   const code = nav.value.contactFormCode
-  if (on && code) {
+  if (on.length && code) {
     useSiteClient().formSchema(code, { locale: useLocaleLight().locale.value || undefined })
       .then((s) => (formSchema.value = s))
       .catch(() => (formSchema.value = null))
@@ -228,7 +231,7 @@ const submitter = async (payload: Record<string, unknown>, files: Record<string,
     </div>
 
     <!-- 联系形态(content.contact 数据驱动) -->
-    <div v-if="contactInfo" class="bg-background py-[var(--web-section-py)]" style="--web-section-py: clamp(3rem, 2rem + 2vw, 5rem)">
+    <div v-if="contactRows.length" class="bg-background py-[var(--web-section-py)]" style="--web-section-py: clamp(3rem, 2rem + 2vw, 5rem)">
       <div class="mx-auto max-w-site px-4 sm:px-6">
         <!-- 通栏地图（iframe 或天地图瓦片，contact.map/map_tk 数据驱动，缺省整块隐藏） -->
         <div
