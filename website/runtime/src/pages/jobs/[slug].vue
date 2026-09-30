@@ -5,8 +5,8 @@ import { useLocale } from '../../composables/useLocale.ts'
 import { useLocaleLight } from '../../composables/useLocaleLight.ts'
 import { recordPath, useSiteNavigation } from '../../lib/site.ts'
 /** 招聘详情（通用：职位 meta + 富文本描述 + 申请表单/mailto 投递 + 上下职位）。 */
-import { computed, ref, watch } from 'vue'
-import { navigateTo, useHead, useRoute } from 'nuxt/app'
+import { computed } from 'vue'
+import { navigateTo, useAsyncData, useHead, useRoute } from 'nuxt/app'
 import { WebBreadcrumbs, WebContactForm, WebRichText } from '@edp/website-ui'
 import type { FormSchema } from '@edp/website-ui/contracts'
 
@@ -49,17 +49,18 @@ const applyFormCode = computed<string | undefined>(() => {
   return siteCode || undefined
 })
 
-const formSchema = ref<FormSchema | null>(null)
-watch([applyFormCode, recValues], () => {
-  const code = applyFormCode.value
-  if (!code) {
-    formSchema.value = null
-    return
-  }
-  useSiteClient().formSchema(code, { locale: useLocaleLight().locale.value || undefined })
-    .then((s) => (formSchema.value = s))
-    .catch(() => (formSchema.value = null))
-}, { immediate: true })
+/* schema 必须 SSR 预取（useAsyncData）：纯客户端 watch 取数不进 payload，
+ * 首帧拿不到 schema 时表单整块不渲染（applyFormCode && formSchema 双条件）。 */
+const { data: formData } = await useAsyncData(
+  'web:job-apply-form',
+  () => {
+    const code = applyFormCode.value
+    if (!code) return Promise.resolve(null)
+    return useSiteClient().formSchema(code, { locale: useLocaleLight().locale.value || undefined })
+  },
+  { watch: [applyFormCode] },
+)
+const formSchema = computed<FormSchema | null>(() => (formData.value ?? null) as FormSchema | null)
 
 const jobId = computed(() => (isDetail.value ? Number(slug.value) : null))
 const applySubmitter = async (payload: Record<string, unknown>, files: Record<string, { raw?: File }[]>) => {

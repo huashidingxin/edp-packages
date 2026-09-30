@@ -317,16 +317,27 @@ export default defineNuxtModule({
     if (Object.keys(rules).length > 0) {
       nitroOptions.routeRules = { ...rules, ...((nitroOptions.routeRules as Record<string, unknown>) ?? {}) }
     }
-    // 本地 dev：把 /api 反代到后端，使相对路径 apiBase('/') 在开发期也同源可用
-    // （devProxy 仅 nuxt dev 生效，nuxt build/generate 忽略，无副作用）。
+    // 本地 dev：把 /api 反代到后端，使相对路径 apiBase('/') 在开发期也同源可用。
+    // 注意 nuxt dev 基于 Vite dev server，必须用 vite.server.proxy 才生效；
+    // nitro.devProxy 仅 `nitro dev`（独立 Nitro 服务）生效，nuxt dev 下被忽略，
+    // 配错位置会导致 dev 下所有 client 端 /api 请求打到 dev server 自身而 404
+    // （SSR 直连 apiBase 不受影响，所以页面能渲染、唯独 client 异步取数失败）。
+    const apiTarget = process.env.NUXT_API_BASE || 'http://127.0.0.1:8787'
     const existingDevProxy = (nitroOptions.devProxy as Record<string, unknown>) ?? {}
     if (!('/api' in existingDevProxy)) {
-      existingDevProxy['/api'] = {
-        target: process.env.NUXT_API_BASE || 'http://127.0.0.1:8787',
-        changeOrigin: true,
-      }
+      existingDevProxy['/api'] = { target: apiTarget, changeOrigin: true }
     }
     nitroOptions.devProxy = existingDevProxy
+    // Vite dev server 代理（nuxt dev 真正生效的 /api 反代）。
+    const viteOpts = (nuxt.options.vite as Record<string, any>) ??= {}
+    const viteServer = (viteOpts.server as Record<string, any>) ??= {}
+    const viteProxy = (viteServer.proxy as Record<string, any>) ??= {}
+    if (!('/api' in viteProxy)) {
+      viteProxy['/api'] = { target: apiTarget, changeOrigin: true }
+    }
+    viteServer.proxy = viteProxy
+    viteOpts.server = viteServer
+    nuxt.options.vite = viteOpts as never
     if (def === 'ssg') {
       nitroOptions.prerender = {
         crawlLinks: true,

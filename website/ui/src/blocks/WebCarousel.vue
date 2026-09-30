@@ -90,14 +90,15 @@ function selectIndex(index: number) {
   emit('change', activeIndex.value)
 }
 
-/* 自动播放计时器 (Coverflow 模式) */
+/* 自动播放计时器 (支持 Coverflow 与 Standard 模式) */
 let autoplayTimer: ReturnType<typeof setInterval> | null = null
 function startAutoplay() {
   stopAutoplay()
   if (!props.autoplay && !isCoverflow.value) return
   autoplayTimer = setInterval(() => {
-    if (!isHovered.value) {
-      next()
+    if (!isHovered.value && !dragging.value) {
+      if (isCoverflow.value) next()
+      else go(1)
     }
   }, props.autoplayInterval)
 }
@@ -206,25 +207,45 @@ function onPointerDown(e: PointerEvent) {
   if (settleTimer) { clearTimeout(settleTimer); settleTimer = null }
   movedFar = false
   pointerDown = true
-  dragging.value = true
   startX = e.clientX
   startLeft = el.scrollLeft
-  el.setPointerCapture(e.pointerId)
 }
 
 function onPointerMove(e: PointerEvent) {
-  if (!dragging.value || !pointerDown) return
+  if (!pointerDown) return
   const el = viewport.value
   if (!el) return
-  el.scrollLeft = startLeft - (e.clientX - startX)
-  if (Math.abs(e.clientX - startX) > 6) movedFar = true
+  const delta = e.clientX - startX
+  if (!movedFar && Math.abs(delta) > 6) {
+    movedFar = true
+    dragging.value = true
+    try {
+      el.setPointerCapture(e.pointerId)
+    } catch {
+      /* ignore */
+    }
+  }
+  if (movedFar) {
+    el.scrollLeft = startLeft - delta
+  }
 }
 
-function onPointerUp() {
+function onPointerUp(e: PointerEvent) {
   if (!pointerDown) return
   pointerDown = false
   const el = viewport.value
   if (!el) return
+  if (!movedFar) {
+    dragging.value = false
+    return
+  }
+  try {
+    if (el.hasPointerCapture?.(e.pointerId)) {
+      el.releasePointerCapture(e.pointerId)
+    }
+  } catch {
+    /* ignore */
+  }
   const max = el.scrollWidth - el.clientWidth
   const advanced = el.scrollLeft - startLeft
   const startIdx = Math.round(startLeft / stepPx)
@@ -275,6 +296,8 @@ onMounted(() => {
     if (viewport.value) ro.observe(viewport.value)
     if (isContinuous.value) {
       startContinuousScroll()
+    } else if (props.autoplay) {
+      startAutoplay()
     }
   }
 })

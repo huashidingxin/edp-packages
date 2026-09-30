@@ -9,8 +9,8 @@ import { useSiteNavigation } from '../../lib/site.ts'
  * 联系形态由数据驱动：content.contact 存在 → 方式卡 + 表单（nav.contact_form_code），
  * 无任何 slug/映射表特判。
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useHead, useRoute } from 'nuxt/app'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useAsyncData, useHead, useRoute } from 'nuxt/app'
 import { WebAbout, WebContactForm, WebHero } from '@edp/website-ui'
 import type { FormSchema } from '@edp/website-ui/contracts'
 import { useLocaleLight } from '../../composables/useLocaleLight.ts'
@@ -188,16 +188,23 @@ useHead({
   meta: [{ name: 'description', content: () => displaySummary.value || '' }],
 })
 
-/* 表单 schema:独立轻量请求(仅联系形态发一次) */
-const formSchema = ref<FormSchema | null>(null)
-watch(contactRows, (on) => {
-  const code = nav.value.contactFormCode
-  if (on.length && code) {
-    useSiteClient().formSchema(code, { locale: useLocaleLight().locale.value || undefined })
-      .then((s) => (formSchema.value = s))
-      .catch(() => (formSchema.value = null))
-  }
-}, { immediate: true })
+/* 表单 schema：SSR 预取（联系页即取，不依赖联系信息卡是否配置，
+ * 避免 branding.contact / 页面 contact 块为空时整个联系区（含表单）被隐藏）。
+ * 必须走 useAsyncData + await：纯客户端 watch 取数的结果不进 SSR payload，
+ * 首帧只会渲染空壳表单（无字段，观感即「表单不显示」）。 */
+const formCode = computed(() => nav.value.contactFormCode ?? '')
+const formLocale = useLocaleLight().locale
+const formOn = computed(() => isContactSlug.value || pageContactRows.value.length > 0)
+const { data: formData } = await useAsyncData(
+  'web:about-contact-form',
+  () => {
+    const code = formCode.value
+    if (!code || !formOn.value) return Promise.resolve(null)
+    return useSiteClient().formSchema(code, { locale: formLocale.value || undefined })
+  },
+  { watch: [formCode, formOn] },
+)
+const formSchema = computed<FormSchema | null>(() => (formData.value ?? null) as FormSchema | null)
 
 const submitter = async (payload: Record<string, unknown>, files: Record<string, { raw?: File }[]>) => {
   const code = nav.value.contactFormCode
@@ -230,8 +237,8 @@ const submitter = async (payload: Record<string, unknown>, files: Record<string,
       </div>
     </div>
 
-    <!-- 联系形态(content.contact 数据驱动) -->
-    <div v-if="contactRows.length" class="bg-background py-[var(--web-section-py)]" style="--web-section-py: clamp(3rem, 2rem + 2vw, 5rem)">
+    <!-- 联系形态(content.contact 数据驱动)；联系页且配置了 contact_form_code 时即渲染表单，不受联系信息卡是否为空影响 -->
+    <div v-if="contactRows.length || (isContactSlug && nav.contactFormCode)" class="bg-background py-[var(--web-section-py)]" style="--web-section-py: clamp(3rem, 2rem + 2vw, 5rem)">
       <div class="mx-auto max-w-site px-4 sm:px-6">
         <!-- 通栏地图（iframe 或天地图瓦片，contact.map/map_tk 数据驱动，缺省整块隐藏） -->
         <div
