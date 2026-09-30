@@ -284,6 +284,12 @@ export default defineNuxtModule({
     })
 
     /* ---------- 渲染策略 → routeRules ---------- */
+    // NUXT_SPA_MODE=true：开发调试时强制纯客户端渲染（SPA），所有 API 请求可在浏览器 Network 看到。
+    // 仅限非生产环境生效，生产环境此变量无效。
+    const spaMode = process.env.NODE_ENV !== 'production' && process.env.NUXT_SPA_MODE === 'true'
+    if (spaMode) {
+      nuxt.options.ssr = false
+    }
     const rendering = options.rendering ?? {}
     const sectionPolicies = resolveSectionPolicies(rendering.sections)
     const paginationPolicy = resolvePaginationPolicy(rendering.pagination)
