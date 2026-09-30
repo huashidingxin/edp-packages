@@ -67,10 +67,12 @@ const copyrightText = computed(
 <template>
   <footer :class="cn('web-footer bg-secondary text-secondary-foreground', props.class)">
     <div class="mx-auto max-w-site px-4 py-14 sm:px-6">
-      <!-- 主内容区：品牌 + 菜单列 + 二维码 -->
-      <div class="web-footer__grid grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+      <!-- 主内容区：品牌 + 菜单列 + 二维码
+        * 移动端(<sm)菜单列即排两列（单列堆叠会把页脚拉成超长条），品牌区独占整行；
+        * sm 起 2 列、lg 起 4 列与旧版一致。 -->
+      <div class="web-footer__grid grid grid-cols-2 gap-x-6 gap-y-10 sm:gap-10 sm:grid-cols-2 lg:grid-cols-4">
         <!-- 品牌与联系 -->
-        <div class="web-footer__brand space-y-5 sm:col-span-2 lg:col-span-1">
+        <div class="web-footer__brand col-span-2 space-y-5 lg:col-span-1">
           <slot name="brand" :site-name="siteName" :branding="branding" :contact="contact">
             <a href="/" class="inline-flex items-center gap-2.5">
               <img v-if="branding?.logo" :src="branding.logo" :alt="branding.logo_alt || siteName" class="h-9 w-auto" style="filter: var(--web-footer-logo-filter, none)">
@@ -112,7 +114,7 @@ const copyrightText = computed(
 
         <!-- 二维码:#qr 替换 -->
         <slot name="qr" :contact="contact">
-          <div v-if="contact?.qr_image" class="web-footer__qr justify-self-start md:justify-self-end">
+          <div v-if="contact?.qr_image" class="web-footer__qr col-span-2 justify-self-start sm:col-span-1 md:justify-self-end">
             <img :src="contact.qr_image" :alt="contact.qr_label ?? componentStrings.WebFooter.contact" class="size-28 rounded-md bg-white p-1">
             <p v-if="contact.qr_label" class="mt-2 text-xs text-secondary-foreground/50">{{ contact.qr_label }}</p>
           </div>

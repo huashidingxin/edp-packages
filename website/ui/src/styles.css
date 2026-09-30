@@ -248,7 +248,7 @@
     }
   }
   .web-rise-in {
-    animation: web-rise-in-kf var(--web-motion-duration, 0.6s) var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1)) both;
+    animation: web-rise-in-kf var(--web-motion-duration, 0.6s) var(--web-motion-ease, cubic-bezier(0.22, 1, 0.36, 1)) var(--web-reveal-delay, 0ms) both;
   }
 
   /* 滚动入场（useWebReveal 消费）：JS 先挂 .web-rise-wait 隐藏视口外元素，
@@ -732,5 +732,20 @@
     max-width: 100%;
     border-radius: 8px;
     margin: 8px 0;
+  }
+}
+
+@layer components {
+  /* ---------- WebHero fit="contain"：移动端(<lg)宽 banner 完整呈现 + 同图模糊垫底。
+   * 主图 object-fit 由模板里的 object-cover/max-lg:object-contain 工具类控制
+   * （components 层规则压不过 utilities，勿在此声明 object-fit）；
+   * 这里只负责垫底图的显隐。桌面端垫底图恒隐藏，不影响任何既有站点。 ---------- */
+  .web-hero__backdrop {
+    display: none;
+  }
+  @media (max-width: 63.99rem) {
+    .web-hero[data-fit='contain'] .web-hero__backdrop {
+      display: block;
+    }
   }
 }

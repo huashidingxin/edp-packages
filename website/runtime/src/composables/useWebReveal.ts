@@ -49,6 +49,7 @@ export function useWebReveal(
   /** 激活：换 .web-rise-in 播放入场并停止观察。 */
   const reveal = (el: HTMLElement): void => {
     el.classList.remove('web-rise-wait')
+    el.dataset.webRevealed = '1'
     if (el.classList.contains('web-rise-in')) return
     const delay = el.dataset.webRevealDelay
     if (delay) el.style.setProperty('--web-reveal-delay', delay)
@@ -66,11 +67,15 @@ export function useWebReveal(
     const pending: HTMLElement[] = []
     const viewportH = window.innerHeight
     for (const el of targets) {
-      if (el.classList.contains('web-rise-in')) continue
+      if (el.dataset.webRevealed === '1' || el.classList.contains('web-rise-in')) continue
       const rect = el.getBoundingClientRect()
       if (rect.top < viewportH && rect.bottom > 0) {
-        // 首屏内：直接激活，不经历隐藏帧，避免闪烁
-        reveal(el)
+        // 首屏内：SSR 已直接可见，仅在曾处于隐藏等待态时才播放入场动画，避免水合后二次跳动闪烁
+        if (el.classList.contains('web-rise-wait')) {
+          reveal(el)
+        } else {
+          el.dataset.webRevealed = '1'
+        }
       } else {
         el.classList.add('web-rise-wait')
         pending.push(el)

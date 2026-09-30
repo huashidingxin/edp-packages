@@ -15,6 +15,8 @@ export interface WebHeroAction {
 
 export interface WebHeroSlide {
   image: string
+  /** 移动端(<lg)专用图（竖版裁切）：声明后小屏经 <picture> 切换，桌面仍用 image。 */
+  mobile_image?: string | null
   alt?: string
   title?: string
   href?: string
@@ -34,6 +36,12 @@ const props = withDefaults(
     actions?: WebHeroAction[] | null
     /** 底部渐变遮罩（overlay 时默认开）。 */
     scrim?: boolean | null
+    /**
+     * 移动端(<lg)媒体呈现方式：cover=铺满裁切（默认，行为不变）；
+     * contain=完整呈现 + 同图放大模糊垫底（宽 banner 在竖屏不丢内容）。
+     * 桌面端恒为 cover，不受该值影响。
+     */
+    fit?: 'cover' | 'contain'
     autoplay?: boolean | null
     interval?: number
     class?: ClassValue
@@ -48,6 +56,7 @@ const props = withDefaults(
     summary: null,
     actions: null,
     scrim: null,
+    fit: 'cover',
     autoplay: true,
     interval: 5000,
     class: undefined,
@@ -86,6 +95,9 @@ onBeforeUnmount(() => {
 
 const showScrim = computed(() => props.scrim ?? props.variant === 'overlay')
 
+/** contain 档的模糊垫底图：始终跟随当前活动帧。 */
+const activeImage = computed(() => props.slides[activeIndex.value]?.image ?? props.image ?? '')
+
 // 鼠标拖拽左右切换轮播（阈值 50px）
 const dragStartX = ref<number | null>(null)
 function onPointerDown(e: PointerEvent): void {
@@ -102,23 +114,33 @@ function onPointerUp(e: PointerEvent): void {
 </script>
 
 <template>
-  <section :class="rootClass" :data-variant="variant">
+  <section :class="rootClass" :data-variant="variant" :data-fit="fit">
     <!-- 背景媒体 -->
     <div :class="cn('web-hero__media', variant === 'overlay' ? 'absolute inset-0' : 'relative min-h-[280px] lg:order-last lg:min-h-0')" :style="hasCarousel ? { cursor: 'grab' } : undefined" aria-hidden="true" @pointerdown="onPointerDown" @pointerup="onPointerUp">
       <!-- 常驻兜底底层:图片缺失/加载失败时不再露白 -->
       <div class="absolute inset-0 bg-gradient-to-br from-secondary via-secondary/90 to-secondary/70" />
+      <!-- contain 档的模糊垫底（仅移动端显示，见 styles.css）：满铺不露边 -->
+      <img
+        v-if="fit === 'contain' && activeImage"
+        :src="activeImage"
+        alt=""
+        class="web-hero__backdrop absolute inset-0 size-full scale-125 object-cover opacity-50 blur-2xl"
+        loading="eager"
+        referrerpolicy="no-referrer"
+      >
       <template v-if="slides.length">
-        <img
-          v-for="(slide, i) in slides"
-          :key="slide.image + i"
-          :src="slide.image"
-          :alt="slide.alt ?? ''"
-          :class="cn('absolute inset-0 size-full object-cover transition-opacity duration-700', i === activeIndex ? 'opacity-100' : 'opacity-0')"
-          loading="eager"
-          referrerpolicy="no-referrer"
-        >
+        <picture v-for="(slide, i) in slides" :key="slide.image + i">
+          <source v-if="slide.mobile_image" :srcset="slide.mobile_image" media="(max-width: 63.99rem)">
+          <img
+            :src="slide.image"
+            :alt="slide.alt ?? ''"
+            :class="cn('absolute inset-0 size-full transition-opacity duration-700', fit === 'contain' ? 'object-cover max-lg:object-contain' : 'object-cover', i === activeIndex ? 'opacity-100' : 'opacity-0')"
+            loading="eager"
+            referrerpolicy="no-referrer"
+          >
+        </picture>
       </template>
-      <img v-else-if="image" :src="image" :alt="imageAlt ?? ''" class="absolute inset-0 size-full object-cover" loading="eager" referrerpolicy="no-referrer">
+      <img v-else-if="image" :src="image" :alt="imageAlt ?? ''" :class="cn('absolute inset-0 size-full', fit === 'contain' ? 'object-cover max-lg:object-contain' : 'object-cover')" loading="eager" referrerpolicy="no-referrer">
       <div v-if="showScrim" class="web-hero__scrim absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/10" />
     </div>
 

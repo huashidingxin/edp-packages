@@ -97,7 +97,7 @@ export function useSiteCollection(opts: {
   const key = computed(() => `web:collection:${opts.type}:${stableQueryKey(query.value)}`)
   return useAsyncData<CollectionResponse | null>(
     key, () => client.collection(opts.type, query.value),
-    { server: opts.server ?? true, default: () => null, dedupe: 'defer' },
+    { server: opts.server ?? true, default: () => null, dedupe: 'defer', getCachedData: payloadData },
   )
 }
 
@@ -115,7 +115,7 @@ export function useSiteRecord(opts: {
   return useAsyncData<RecordResponse | null>(
     key,
     () => id.value ? client.record(opts.type, id.value, { locale: currentLocale.value }) : Promise.resolve(null),
-    { server: opts.server ?? true, default: () => null, dedupe: 'defer' },
+    { server: opts.server ?? true, default: () => null, dedupe: 'defer', getCachedData: payloadData },
   )
 }
 
@@ -140,7 +140,7 @@ export function useSiteCategory(opts: {
           locale: currentLocale.value,
         })
       : Promise.resolve(null),
-    { server: opts.server ?? true, default: () => null, dedupe: 'defer' },
+    { server: opts.server ?? true, default: () => null, dedupe: 'defer', getCachedData: payloadData },
   )
 }
 
