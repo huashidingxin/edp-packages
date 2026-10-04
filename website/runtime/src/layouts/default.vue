@@ -82,6 +82,7 @@ const headerProps = computed(() => ({
            一旦覆盖语言切换在 PC 端就消失。会员挂件走 #actions-extra 追加在缺省操作区之后。 -->
       <template #actions-extra>
         <WebUserArea v-if="userWidgetEnabled" class="hidden lg:block" />
+        <slot name="actions-extra" />
       </template>
       <!-- 其余具名插槽透传给站点（如 #mega-extra 推广位）；actions 已显式处理 -->
       <template v-for="name in headerPassthroughSlots" :key="name" #[name]="slotProps">
