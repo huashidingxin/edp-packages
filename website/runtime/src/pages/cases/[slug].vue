@@ -81,12 +81,14 @@ const total = computed(() => Number(collection.value?.meta?.total ?? items.value
 const gallery = computed(() => {
   const m = recValues.value?.media
   return Array.isArray(m) && m.length
-    ? m.map((g: any) => ({
-        type: g.type,
-        src: String(g.src ?? g.url ?? g),
-        alt: String(g.alt ?? pageTitle.value ?? ''),
-        poster: g.poster ?? g.thumbnail ?? null,
-      }))
+    ? m
+        .filter((g: any) => !['cover', 'preview'].includes(String(g?.type ?? '').toLowerCase()))
+        .map((g: any) => ({
+          type: g.type,
+          src: String(g.src ?? g.url ?? g),
+          alt: String(g.alt ?? pageTitle.value ?? ''),
+          poster: g.poster ?? g.thumbnail ?? null,
+        }))
     : []
 })
 
