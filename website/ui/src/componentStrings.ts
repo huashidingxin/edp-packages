@@ -1,7 +1,7 @@
 /**
  * 组件级字符串 —— 系统组件级别翻译的聚合点。
  *
- * 约定（AGENTS.md / saas-website-packages §5）：
+ * 约定（AGENTS.md / docs/README.md#website）：
  * - 组件内可见文本（含 aria-label）一律走 props，由调用方传入翻译后的值；
  * - 默认值集中在本文件，值为中文原文（与 site_ui_strings 的 source 约定一致，
  *   缺翻译时回退原文不空屏）；

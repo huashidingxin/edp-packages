@@ -26,7 +26,7 @@ const slug = computed(() => String(route.params.slug ?? ''))
 const pageCode = computed(() => `about-${slug.value}`)
 
 const { data: page } = useSitePageData({ code: pageCode })
-/* 标准块（docs/saas-website-api.md §1.2A）：intro=导语卡 / body=正文卡 /
+/* 标准块（docs/README.md#page-config）：intro=导语卡 / body=正文卡 /
  * sections=版块列表 / stats=数据条目；全部只含 card 约定字段。 */
 const blocks = computed<Record<string, any>>(() => (page.value?.blocks as Record<string, any>) ?? {})
 const asObj = (v: any): Record<string, any> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, any>) : {})
