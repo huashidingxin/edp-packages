@@ -118,7 +118,7 @@ function onPointerUp(e: PointerEvent): void {
     <!-- 背景媒体 -->
     <div :class="cn('web-hero__media', variant === 'overlay' ? 'absolute inset-0' : 'relative min-h-[280px] lg:order-last lg:min-h-0')" :style="hasCarousel ? { cursor: 'grab' } : undefined" aria-hidden="true" @pointerdown="onPointerDown" @pointerup="onPointerUp">
       <!-- 常驻兜底底层:图片缺失/加载失败时不再露白 -->
-      <div class="absolute inset-0 bg-gradient-to-br from-secondary via-secondary/90 to-secondary/70" />
+      <div class="absolute inset-0 bg-black" />
       <!-- contain 档的模糊垫底（仅移动端显示，见 styles.css）：满铺不露边 -->
       <img
         v-if="fit === 'contain' && activeImage"
@@ -141,7 +141,7 @@ function onPointerUp(e: PointerEvent): void {
         </picture>
       </template>
       <img v-else-if="image" :src="image" :alt="imageAlt ?? ''" :class="cn('absolute inset-0 size-full', fit === 'contain' ? 'object-cover max-lg:object-contain' : 'object-cover')" loading="eager" referrerpolicy="no-referrer">
-      <div v-if="showScrim" class="web-hero__scrim absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/10" />
+      <div v-if="showScrim" class="web-hero__scrim absolute inset-0 bg-gradient-to-t from-black/70 via-black/45 to-black/40" />
     </div>
 
     <!-- 文案层 -->
@@ -157,7 +157,7 @@ function onPointerUp(e: PointerEvent): void {
           v-if="title"
           :class="cn(
             'web-hero__title max-w-4xl font-display font-bold tracking-tight text-[length:var(--web-hero-title-size,clamp(2rem,1.2rem+2.5vw,3.25rem))]',
-            variant === 'overlay' ? 'text-white [text-shadow:0_2px_18px_rgb(0_0_0/0.35)]' : 'text-foreground',
+            variant === 'overlay' ? 'text-white [text-shadow:0_5px_5px_rgb(0_0_0/0.75)]' : 'text-foreground',
           )"
         >{{ title }}</h1>
         <!-- banner 上的副标题：白字 + 标题下方（mt-3），不再是"装饰眉题" -->
